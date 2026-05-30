@@ -1,5 +1,5 @@
 "use client";
-import React from "react";
+import React, { useState } from "react";
 import ComponentCard from "../../common/ComponentCard";
 import Button from "../../ui/button/Button";
 import { Modal } from "../../ui/modal";
@@ -9,9 +9,27 @@ import { useModal } from "@/hooks/useModal";
 
 export default function FormInModal() {
   const { isOpen, openModal, closeModal } = useModal();
-  const handleSave = () => {
-    // Handle save logic here
-    console.log("Saving changes...");
+
+  const [formData, setFormData] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    bio: "",
+  });
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    console.log(formData);
     closeModal();
   };
   return (
@@ -19,40 +37,71 @@ export default function FormInModal() {
       <Button size="sm" onClick={openModal}>
         Open Modal
       </Button>
+
       <Modal
         isOpen={isOpen}
         onClose={closeModal}
         className="max-w-[584px] p-5 lg:p-10"
       >
-        <form className="">
+        <form onSubmit={handleSubmit}>
           <h4 className="mb-6 text-lg font-medium text-gray-800 dark:text-white/90">
             Personal Information
           </h4>
 
           <div className="grid grid-cols-1 gap-x-6 gap-y-5 sm:grid-cols-2">
-            <div className="col-span-1">
+            <div>
               <Label>First Name</Label>
-              <Input type="text" placeholder="Emirhan" />
+              <Input
+                name="firstName"
+                type="text"
+                placeholder="Emirhan"
+                defaultValue={formData.firstName}
+                onChange={handleChange}
+              />
             </div>
 
-            <div className="col-span-1">
+            <div>
               <Label>Last Name</Label>
-              <Input type="text" placeholder="Boruch" />
+              <Input
+                name="lastName"
+                type="text"
+                placeholder="Boruch"
+                defaultValue={formData.lastName}
+                onChange={handleChange}
+              />
             </div>
 
-            <div className="col-span-1">
-              <Label>Last Name</Label>
-              <Input type="email" placeholder="emirhanboruch55@gmail.com" />
+            <div>
+              <Label>Email</Label>
+              <Input
+                name="email"
+                type="email"
+                placeholder="emirhanboruch55@gmail.com"
+                defaultValue={formData.email}
+                onChange={handleChange}
+              />
             </div>
 
-            <div className="col-span-1">
+            <div>
               <Label>Phone</Label>
-              <Input type="text" placeholder="+09 363 398 46" />
+              <Input
+                name="phone"
+                type="text"
+                placeholder="+09 363 398 46"
+                defaultValue={formData.phone}
+                onChange={handleChange}
+              />
             </div>
 
-            <div className="col-span-1 sm:col-span-2">
+            <div className="sm:col-span-2">
               <Label>Bio</Label>
-              <Input type="text" placeholder="Team Manager" />
+              <Input
+                name="bio"
+                type="text"
+                placeholder="Team Manager"
+                defaultValue={formData.bio}
+                onChange={handleChange}
+              />
             </div>
           </div>
 
@@ -60,7 +109,7 @@ export default function FormInModal() {
             <Button size="sm" variant="outline" onClick={closeModal}>
               Close
             </Button>
-            <Button size="sm" onClick={handleSave}>
+            <Button size="sm" >
               Save Changes
             </Button>
           </div>

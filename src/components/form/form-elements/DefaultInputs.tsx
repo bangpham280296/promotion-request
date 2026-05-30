@@ -21,7 +21,7 @@ export default function DefaultInputs() {
     <ComponentCard title="Default Inputs">
       <div className="space-y-6">
         <div>
-          <Label>Input</Label>
+          <Label>Inputt</Label>
           <Input type="text" />
         </div>
         <div>

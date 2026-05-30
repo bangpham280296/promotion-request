@@ -38,6 +38,7 @@
   --color-white: #ffffff;
   --color-black: #101828;
 
+/*
   --color-brand-25: #f2f7ff;
   --color-brand-50: #ecf3ff;
   --color-brand-100: #dde9ff;
@@ -50,6 +51,22 @@
   --color-brand-800: #252dae;
   --color-brand-900: #262e89;
   --color-brand-950: #161950;
+*/
+
+
+  --color-brand-25: #f2f7ff;
+  --color-brand-50: #FFE6E6;
+  --color-brand-100:#FFB8B8;
+  --color-brand-200: #FFB8B8;
+  --color-brand-300: #FFB8B8;
+  --color-brand-400: #FF5C5C;
+  --color-brand-500: #FF2E2E;
+  --color-brand-600: #D10000;
+  --color-brand-700: #2a31d8;
+  --color-brand-800: #252dae;
+  --color-brand-900: #262e89;
+  --color-brand-950: #161950;
+
 
   --color-blue-light-25: #f5fbff;
   --color-blue-light-50: #f0f9ff;

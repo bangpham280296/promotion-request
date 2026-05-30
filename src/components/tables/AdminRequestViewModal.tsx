@@ -1,0 +1,221 @@
+"use client";
+
+import React, { useState, useEffect } from "react";
+import { Modal } from "@/components/ui/modal";
+import Badge from "@/components/ui/badge/Badge";
+import { FileIcon } from "@/icons";
+import { toast } from "sonner";
+import { exportRequestToExcel } from "@/components/history-request/exportRequestToExcel";
+import { supabase } from "@/lib/supabase/supabaseClient";
+
+function DescriptionCell({ value }: { value: string }) {
+    if (!value || !value.includes("|")) return <span>{value ?? "-"}</span>;
+    return (
+        <div className="flex flex-col gap-1">
+            {value.split(" + ").filter(Boolean).map((part, i) => {
+                const segs = part.split("|");
+                if (segs.length >= 3) {
+                    const [code, name, priceQty] = segs;
+                    const qty = priceQty?.match(/\((\d+)\)\s*$/)?.[1] ?? "";
+                    return <span key={i} className="whitespace-nowrap text-theme-sm">• {code} - {name}{qty ? ` (${qty})` : ""}</span>;
+                }
+                const [code, name] = segs;
+                return <span key={i} className="whitespace-nowrap text-theme-sm">• {code && name ? `${code} - ${name}` : part}</span>;
+            })}
+        </div>
+    );
+}
+
+const formatVNDateTime = (dateStr: string | null | undefined) => {
+    if (!dateStr) return "-";
+    return new Date(dateStr).toLocaleString("sv-SE", { timeZone: "Asia/Ho_Chi_Minh" }).replace("T", " ");
+};
+
+type StatusOption = { id: number; name: string; description: string | null };
+
+type Props = {
+    isOpen: boolean;
+    onClose: () => void;
+    request: any;
+    onStatusChange: (reqid: number, sttId: number) => Promise<void>;
+};
+
+export default function AdminRequestViewModal({ isOpen, onClose, request, onStatusChange }: Props) {
+    const [statusChanging, setStatusChanging] = useState(false);
+    const [localSttId, setLocalSttId] = useState<number | null>(null);
+    const [statusOptions, setStatusOptions] = useState<StatusOption[]>([]);
+
+    // Fetch status options from DB — auto-updates when new statuses are added
+    useEffect(() => {
+        const fetchStatuses = async () => {
+            const { data } = await supabase
+                .from("status")
+                .select("id, name, description")
+                .order("id", { ascending: true });
+            if (data) setStatusOptions(data);
+        };
+        fetchStatuses();
+    }, []);
+
+    useEffect(() => {
+        if (request) setLocalSttId(request.stt?.id ?? null);
+    }, [request, isOpen]);
+
+    const handleStatusChange = async (sttId: number) => {
+        if (!request || localSttId === sttId) return;
+        setStatusChanging(true);
+        try {
+            await onStatusChange(request.reqid, sttId);
+            setLocalSttId(sttId);
+            const opt = statusOptions.find((s) => s.id === sttId);
+            toast.success(`Status updated to "${opt?.name ?? sttId}"`, { position: "top-center" });
+        } catch (err: any) {
+            toast.error(err.message ?? "Failed to update status", { position: "top-center" });
+        } finally {
+            setStatusChanging(false);
+        }
+    };
+
+    const statusBadgeColor = (name: string): "success" | "warning" | "error" | "info" => {
+        if (name === "approved") return "success";
+        if (name === "rejected") return "error";
+        return "warning";
+    };
+
+    const currentStatus = statusOptions.find((s) => s.id === localSttId);
+    const details = request?.promotiondetail ?? [];
+
+    if (!request) return null;
+
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} className="max-w-[1200px] max-h-[90vh] flex flex-col p-0">
+
+            {/* Fixed Header */}
+            <div className="flex-shrink-0 px-6 lg:px-8 pt-16 pb-4 border-b border-gray-100 dark:border-white/[0.07]">
+                <div className="flex items-center justify-between mb-3 mt-3 gap-4 flex-wrap">
+                    <span className="text-xs font-semibold uppercase tracking-widest text-brand-500 dark:text-brand-400">
+                        {request.requestcode}
+                    </span>
+
+                    {/* Status change buttons — auto-populated from status table */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                        {statusOptions.map((opt) => (
+                            <button
+                                key={opt.id}
+                                disabled={statusChanging || localSttId === opt.id}
+                                onClick={() => handleStatusChange(opt.id)}
+                                className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors disabled:opacity-60
+                                    ${localSttId === opt.id
+                                        ? opt.name === "approved"
+                                            ? "bg-green-100 text-green-700 border-green-300 dark:bg-green-500/20 dark:text-green-400 dark:border-green-500/30"
+                                            : opt.name === "rejected"
+                                            ? "bg-red-100 text-red-700 border-red-300 dark:bg-red-500/20 dark:text-red-400 dark:border-red-500/30"
+                                            : "bg-yellow-100 text-yellow-700 border-yellow-300 dark:bg-yellow-500/20 dark:text-yellow-400 dark:border-yellow-500/30"
+                                        : "bg-white text-gray-500 border-gray-300 hover:bg-gray-50 dark:bg-transparent dark:text-gray-400 dark:border-white/[0.1] dark:hover:bg-white/[0.05]"
+                                    }`}
+                            >
+                                {opt.name.charAt(0).toUpperCase() + opt.name.slice(1)}
+                            </button>
+                        ))}
+                        {currentStatus && (
+                            <Badge color={statusBadgeColor(currentStatus.name)}>
+                                {currentStatus.name.charAt(0).toUpperCase() + currentStatus.name.slice(1)}
+                            </Badge>
+                        )}
+                    </div>
+                </div>
+
+                <p className="text-base font-medium text-gray-800 dark:text-white/90">
+                    {request.promotionname}
+                </p>
+            </div>
+
+            {/* Scrollable Body */}
+            <div className="flex-1 overflow-y-auto min-h-0 px-6 lg:px-8 py-6">
+
+                {/* Info Cards */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
+                    {[
+                        { label: "Requester", value: request.employees?.fullname },
+                        { label: "Department", value: request.department?.deptname },
+                        { label: "Created date", value: formatVNDateTime(request.createdate) },
+                        { label: "Start date", value: request.startdate },
+                        { label: "End date", value: request.enddate },
+                    ].map(({ label, value }) => (
+                        <div key={label} className="rounded-xl border border-gray-100 dark:border-white/[0.07] bg-gray-50 dark:bg-white/[0.03] px-4 py-3">
+                            <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">{label}</p>
+                            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">{value ?? "-"}</p>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Promotion Items Table */}
+                <div className="rounded-xl border border-gray-100 dark:border-white/[0.07] overflow-hidden">
+                    <div className="px-4 py-3 border-b border-gray-100 dark:border-white/[0.07] bg-gray-50 dark:bg-white/[0.03]">
+                        <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                            Promotion Items
+                            <span className="ml-2 text-xs font-normal text-gray-400">
+                                ({details.length} item{details.length !== 1 ? "s" : ""})
+                            </span>
+                        </p>
+                    </div>
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full text-sm">
+                            <thead>
+                                <tr className="border-b border-gray-100 dark:border-white/[0.07]">
+                                    {["No.", "Item Code", "Item Name", "Description", "Service Type", "Discount", "Price", "Start", "End", "Notes"].map((h) => (
+                                        <th key={h} className="px-4 py-2.5 text-left text-xs font-medium text-gray-400 dark:text-gray-500 whitespace-nowrap">{h}</th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
+                                {details.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={10} className="px-4 py-6 text-center text-gray-400 dark:text-gray-500">
+                                            No items found.
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    details.map((item: any, idx: number) => (
+                                        <tr key={item.reqdtlid ?? idx} className="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
+                                            <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{idx + 1}</td>
+                                            <td className="px-4 py-3 font-medium text-gray-700 dark:text-gray-300">{item.itemcode || "-"}</td>
+                                            <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{item.itemname || "-"}</td>
+                                            <td className="px-4 py-3 text-gray-700 dark:text-gray-300"><DescriptionCell value={item.description ?? ""} /></td>
+                                            <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{item.servicetype || "-"}</td>
+                                            <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{item.discount ?? "-"}</td>
+                                            <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{item.price ?? "-"}</td>
+                                            <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">{item.startdate || "-"}</td>
+                                            <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">{item.enddate || "-"}</td>
+                                            <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{item.notes || "-"}</td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            {/* Fixed Footer */}
+            <div className="flex-shrink-0 flex justify-between items-center px-6 lg:px-8 py-4 border-t border-gray-100 dark:border-white/[0.07]">
+                <button
+                    onClick={() =>
+                        exportRequestToExcel(request, details).catch((err) =>
+                            toast.error(err.message ?? "Export failed", { position: "top-center" })
+                        )
+                    }
+                    className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:bg-transparent dark:text-gray-300 dark:border-white/[0.1] dark:hover:bg-white/[0.05] transition-colors"
+                >
+                    <FileIcon /> Export to Excel
+                </button>
+                <button
+                    onClick={onClose}
+                    className="px-5 py-2.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700 dark:hover:bg-gray-700 transition-colors"
+                >
+                    Close
+                </button>
+            </div>
+        </Modal>
+    );
+}
