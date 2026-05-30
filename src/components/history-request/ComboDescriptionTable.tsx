@@ -216,8 +216,6 @@ export default function ComboDescriptionTable({ defaultValue, onChange }: Props)
                             <TableCell isHeader className="px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 w-[16%] text-right">Unit Price</TableCell>
                             <TableCell isHeader className="px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 w-[10%] text-center">Qty</TableCell>
                             <TableCell isHeader className="px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 w-[16%] text-right">Total Price</TableCell>
-                            <TableCell isHeader className="px-3 py-2 w-8" />
-                            <TableCell isHeader className="px-3 py-2 w-8" />
                         </TableRow>
                     </TableHeader>
 
