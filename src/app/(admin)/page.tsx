@@ -7,7 +7,7 @@ import Protected from "@/components/auth/ProtectPage";
 export const metadata: Metadata = {
   title:
     "Promotion Management | Follow-up on Promotions Request",
-  description: "This is Next.js Home for TailAdmin Dashboard Template",
+  description: "This is a simple promotion management page.",
 };
 
 export default function Ecommerce() {

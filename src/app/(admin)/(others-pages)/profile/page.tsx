@@ -5,12 +5,12 @@ import { Metadata } from "next";
 import React from "react";
 
 export const metadata: Metadata = {
-  title: "Next.js Profile | TailAdmin - Next.js Dashboard Template",
+  title: "Profile | Information and Settings",
   icons: {
     icon: "@/public/logo/kfc-icon.svg",
   },
   description:
-    "This is Next.js Profile page for TailAdmin - Next.js Tailwind CSS Admin Dashboard Template",
+    "This is the profile page where users can view and edit their personal information and settings.",
 };
 
 export default function Profile() {
