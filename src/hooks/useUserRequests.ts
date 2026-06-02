@@ -7,7 +7,10 @@ export function useUserRequests(userId: string | null) {
   const [error, setError] = useState<string | null>(null);
 
   const fetchRequests = useCallback(async () => {
-    if (!userId) return;
+    if (!userId) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
 
     const { data, error } = await supabase

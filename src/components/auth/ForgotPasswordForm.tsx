@@ -5,7 +5,6 @@ import Button from "@/components/ui/button/Button";
 import { ChevronLeftIcon } from "@/icons";
 import Link from "next/link";
 import React, { useState } from "react";
-import { supabase } from "@/lib/supabase/supabaseClient";
 import { toast } from "sonner";
 
 export default function ForgotPasswordForm() {
@@ -22,16 +21,25 @@ export default function ForgotPasswordForm() {
         }
 
         setLoading(true);
-        const { error } = await supabase.auth.resetPasswordForEmail(email, {
-            redirectTo: `${window.location.origin}/resetpassword`,
-        });
-        setLoading(false);
+        try {
+            const res = await fetch("/api/auth/send-temp-password", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email }),
+            });
 
-        if (error) {
-            toast.error("Failed to send email: " + error.message);
-        } else {
-            setSent(true);
-            toast.success("Recovery email sent! Please check your inbox.");
+            const data = await res.json();
+
+            if (!res.ok) {
+                toast.error(data.error || "Failed to send email.");
+            } else {
+                setSent(true);
+                toast.success("Temporary password sent! Please check your inbox.");
+            }
+        } catch {
+            toast.error("Network error. Please try again.");
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -53,15 +61,23 @@ export default function ForgotPasswordForm() {
                             Forgot Password
                         </h1>
                         <p className="text-sm text-gray-500 dark:text-gray-400">
-                            Enter your email address and we&apos;ll send you a link to reset your password.
+                            Enter your email and we&apos;ll send you a temporary password.
                         </p>
                     </div>
 
                     {sent ? (
                         <div className="p-4 rounded-lg bg-success-50 dark:bg-success-500/10 border border-success-200 dark:border-success-500/20">
                             <p className="text-sm text-success-700 dark:text-success-400">
-                                Email sent to <strong>{email}</strong>. Please check your inbox and click the link to reset your password.
+                                Temporary password sent to <strong>{email}</strong>. Please check your inbox and sign in with the new password.
                             </p>
+                            <div className="mt-4">
+                                <Link
+                                    href="/signin"
+                                    className="text-sm text-brand-500 hover:text-brand-600 dark:text-brand-400"
+                                >
+                                    Go to Sign In →
+                                </Link>
+                            </div>
                         </div>
                     ) : (
                         <form onSubmit={handleSendEmail}>
@@ -79,7 +95,7 @@ export default function ForgotPasswordForm() {
                                 </div>
                                 <div>
                                     <Button type="submit" className="w-full" size="sm" disabled={loading}>
-                                        {loading ? "Sending..." : "Send Reset Link"}
+                                        {loading ? "Sending..." : "Send Temporary Password"}
                                     </Button>
                                 </div>
                             </div>

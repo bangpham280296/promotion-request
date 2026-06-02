@@ -1,6 +1,6 @@
 "use client";
 
-import ItemTable from "@/components/product/item/ItemTable";
+import ItemTable from "@/components/(product)/item/ItemTable";
 
 export default function ItemPage() {
     return (

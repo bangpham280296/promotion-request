@@ -1,6 +1,6 @@
 # Tính năng: Promotion Request System
 
-> Cập nhật lần cuối: 2026-05-30
+> Cập nhật lần cuối: 2026-06-02
 
 ---
 
@@ -514,3 +514,121 @@ export function useAllItems(itemsPerPage: number) {
 - **OR alternatives**: separator ` OR ` phân biệt với ` + ` (component separator) — không dùng ký tự khác để tránh nhầm lẫn khi parse.
 - **totalQty với OR**: chỉ tính qty của alternative đầu tiên mỗi group — alternatives là lựa chọn thay thế, không cộng dồn.
 - **totalPrice với OR**: dùng max price per group cho validation — đảm bảo combo price không vượt ngay cả khi chọn option đắt nhất.
+
+---
+
+## 14. Reset Password Feature
+
+### Tổng quan
+
+Có **2 flow** reset password:
+
+| Flow | Route | Cách hoạt động |
+|---|---|---|
+| Supabase Recovery Link | `/resetpassword` | Gửi link → user click → nhập password mới |
+| Temporary Password | `/forgotpassword` | Hệ thống tự tạo password → gửi qua email M365 |
+
+Tính năng đang dùng chính là **Flow 2 (Temporary Password)**.
+
+---
+
+### Cấu trúc File
+
+```
+src/components/auth/
+  ├── ForgotPasswordForm.tsx     ← Form nhập email, gọi API gửi temp password
+  └── ResetPasswordForm.tsx      ← Form nhập password mới (Flow 1 - Supabase link)
+
+src/app/(full-width-pages)/(auth)/
+  ├── forgotpassword/page.tsx    ← Route /forgotpassword
+  └── resetpassword/page.tsx     ← Route /resetpassword
+
+src/app/api/auth/send-temp-password/
+  └── route.ts                   ← API POST: tạo + cập nhật + gửi temp password
+
+src/lib/
+  ├── supabase/supabaseAdmin.ts  ← Supabase Admin client (Service Role Key, server-side only)
+  └── mailer.ts                  ← Nodemailer transport (Microsoft 365 SMTP)
+```
+
+---
+
+### Flow 2: Temporary Password (Flow chính)
+
+```
+User vào /forgotpassword
+  → Nhập email → POST /api/auth/send-temp-password
+  → API tìm user trong Supabase Auth theo email
+  → Tạo password ngẫu nhiên 8 ký tự
+  → supabaseAdmin.auth.admin.updateUserById(userId, { password })
+  → Gửi email qua Nodemailer + M365 SMTP
+  → User nhận email → đăng nhập luôn
+```
+
+**Generate temp password** — tránh ký tự dễ nhầm (0/O, 1/l/I):
+```typescript
+const chars = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+// 8 ký tự ngẫu nhiên
+```
+
+---
+
+### Flow 1: Supabase Recovery Link
+
+```
+User nhập email → supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: "http://localhost:3000/resetpassword"
+})
+→ Supabase gửi email có link
+→ User click link → /resetpassword#access_token=...&type=recovery
+→ onAuthStateChange fires "PASSWORD_RECOVERY" → isRecoveryMode = true
+→ User nhập password mới → supabase.auth.updateUser({ password })
+→ Redirect về /signin
+```
+
+> **Lưu ý:** Phải thêm `http://localhost:3000/resetpassword` vào **Redirect URLs** trong Supabase Dashboard → Authentication → URL Configuration.
+
+---
+
+### Env Vars (`.env.local`)
+
+```env
+# Supabase Admin — lấy tại Supabase Dashboard → Project Settings → API → service_role
+SUPABASE_SERVICE_ROLE_KEY=...
+
+# Microsoft 365 SMTP
+SMTP_HOST=smtp.office365.com
+SMTP_PORT=587
+SMTP_USER=bangpt@kfcvietnam.com.vn
+SMTP_PASS=...          # App Password (tạo tại myaccount.microsoft.com → Security info)
+SMTP_FROM=bangpt@kfcvietnam.com.vn
+```
+
+> **M365 + MFA**: tài khoản bật Microsoft Authenticator phải dùng **App Password**, không dùng password thường. Tạo tại `myaccount.microsoft.com → Security info → Add method → App password`.
+
+---
+
+### Kết nối Sign In
+
+`SignInForm.tsx` có link **"Forgot password?"** trỏ về `/forgotpassword`.
+
+```tsx
+<Link href="/forgotpassword">Forgot password?</Link>
+```
+
+---
+
+### Package cần cài
+
+```bash
+npm install nodemailer
+npm install --save-dev @types/nodemailer
+```
+
+---
+
+### Known Notes
+
+- **`supabaseAdmin`** dùng `SUPABASE_SERVICE_ROLE_KEY` — chỉ dùng server-side (API Routes), tuyệt đối không import vào client component.
+- **M365 Basic Auth**: nếu tổ chức tắt SMTP AUTH → cần IT enable hoặc chuyển sang OAuth2.
+- **Temp password không expire tự động** — user nên đổi password ngay sau khi nhận email.
