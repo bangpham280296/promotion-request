@@ -1,10 +1,14 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Modal } from "@/components/ui/modal";
 import Button from "@/components/ui/button/Button";
-import { supabase } from "@/lib/supabase/supabaseClient";
+import Select from "@/components/form/Select";
+import Input from "@/components/form/input/InputField";
+import Label from "@/components/form/Label";
+import { useUpdateItem, useCategories } from "@/hooks/useItems";
 import type { AllItem } from "@/hooks/useItems";
+import { toast } from "sonner";
 
 type Props = {
   isOpen: boolean;
@@ -13,38 +17,46 @@ type Props = {
   onSuccess: () => void;
 };
 
+const STATUS_OPTIONS = [
+  { value: "1", label: "Active" },
+  { value: "2", label: "Inactive" },
+];
+
 export default function ItemEditModal({ isOpen, item, onClose, onSuccess }: Props) {
   const [status, setStatus] = useState<number>(1);
   const [itempicker, setItempicker] = useState<boolean>(false);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [price, setPrice] = useState<number>(0);
+  const [categoryId, setCategoryId] = useState<number | null>(null);
+
+  const { updateItem, saving, setError } = useUpdateItem();
+  const { categories, loading: loadingCategories } = useCategories();
 
   useEffect(() => {
     if (item) {
       setStatus(item.status);
       setItempicker(item.itempicker);
+      setPrice(item.price);
+      setCategoryId(item.category?.id ?? null);
       setError(null);
     }
-  }, [item]);
+  }, [item, setError]);
 
   const handleSave = async () => {
     if (!item) return;
-    setSaving(true);
-    setError(null);
-
-    const { error } = await supabase
-      .from("items")
-      .update({ status, itempicker })
-      .eq("id", item.id);
-
-    if (error) {
-      setError(error.message);
-    } else {
+    const ok = await updateItem(item.id, { status, itempicker, price, category: categoryId });
+    if (ok) {
+      toast.success(`Item "${item.itemcode}" updated successfully.`);
       onSuccess();
       onClose();
+    } else {
+      toast.error("Failed to update item. Please try again.");
     }
-    setSaving(false);
   };
+
+  const categoryOptions = [
+    { value: "none", label: "— No category —" },
+    ...categories.map((cat) => ({ value: String(cat.id), label: cat.Description })),
+  ];
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} className="max-w-sm p-6">
@@ -58,19 +70,41 @@ export default function ItemEditModal({ isOpen, item, onClose, onSuccess }: Prop
       )}
 
       <div className="space-y-5">
+
+        {/* Price */}
+        <div>
+          <Label htmlFor="price-edit">Price (VND)</Label>
+          <Input
+            id="price-edit"
+            type="number"
+            min="0"
+            value={price}
+            onChange={(e) => setPrice(Number(e.target.value))}
+          />
+        </div>
+
+        {/* Category */}
+        <div>
+          <Label>Category</Label>
+          <Select
+            key={`cat-${item?.id}`}
+            options={categoryOptions}
+            defaultValue={item?.category?.id != null ? String(item.category.id) : "none"}
+            placeholder={loadingCategories ? "Loading..." : "Select category"}
+            onChange={(val) => setCategoryId(val === "none" ? null : Number(val))}
+          />
+        </div>
+
         {/* Status */}
         <div>
-          <label className="block mb-1.5 text-sm font-medium text-gray-700 dark:text-gray-300">
-            Status
-          </label>
-          <select
-            value={status}
-            onChange={(e) => setStatus(Number(e.target.value))}
-            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-700 focus:border-brand-500 focus:outline-none focus:ring-0 dark:border-white/[0.1] dark:bg-white/[0.05] dark:text-gray-300"
-          >
-            <option value={1}>Active</option>
-            <option value={2}>Inactive</option>
-          </select>
+          <Label>Status</Label>
+          <Select
+            key={`status-${item?.id}`}
+            options={STATUS_OPTIONS}
+            defaultValue={item ? String(item.status) : "1"}
+            placeholder="Select status"
+            onChange={(val) => setStatus(Number(val))}
+          />
         </div>
 
         {/* Item Picker */}
@@ -82,17 +116,13 @@ export default function ItemEditModal({ isOpen, item, onClose, onSuccess }: Prop
             onChange={(e) => setItempicker(e.target.checked)}
             className="w-4 h-4 accent-brand-500 cursor-pointer"
           />
-          <label
-            htmlFor="itempicker-edit"
-            className="text-sm font-medium text-gray-700 dark:text-gray-300 cursor-pointer"
-          >
+          <Label htmlFor="itempicker-edit" className="mb-0 cursor-pointer">
             Show in Item Picker
-          </label>
+          </Label>
         </div>
 
-        {error && (
-          <p className="text-xs text-red-400">{error}</p>
-        )}
+
+
       </div>
 
       <div className="mt-6 flex justify-end gap-3">
