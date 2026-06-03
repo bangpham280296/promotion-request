@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import {
     Table,
     TableBody,
@@ -10,25 +10,11 @@ import {
 } from "@/components/ui/table";
 import Button from "@/components/ui/button/Button";
 import { useModal } from "@/hooks/useModal";
-import { PencilIcon, PlusIcon, TrashBinIcon } from "@/icons";
+import { CopyIcon, DownloadIcon, FileIcon, ImportFile, PencilIcon, PlusIcon, TrashBinIcon } from "@/icons";
 import RequestDetailModal, { FormState } from "./RequestDetailModal";
 import { toDBDescription } from "./ComboDescriptionTable";
 import { toast } from "sonner";
-
-type Row = {
-    no: number;
-    itemcode: string;
-    itemname: string;
-    description: string;        // DB format: "code|name + ..."
-    _descriptionFull?: string;  // UI-only: "code|name|price + ..." (không gửi lên DB)
-    servicetype: string;
-    discount: string | null;
-    price: number | null;
-    startdate: string;
-    enddate: string;
-    notes: string;
-    itemtype: string;           // 'item' | 'combo' | 'discount'
-};
+import { type Row, downloadTemplate, importFromExcel } from "./requestDetailExcel";
 
 type DetailProps = {
     value: Row[];
@@ -89,6 +75,7 @@ export default function RequestDetailTable({ value, onChange }: DetailProps) {
     const [resetKey, setResetKey] = useState(0);
     const [selectedType, setSelectedType] = useState("Item");
     const [comboTotal, setComboTotal] = useState(0);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const data = value ?? [];
 
@@ -136,8 +123,6 @@ export default function RequestDetailTable({ value, onChange }: DetailProps) {
         itemtype: selectedType.toLowerCase(),
     });
 
-    // Add mode → thêm row + clear form, modal vẫn mở
-    // Edit mode → cập nhật row + clear form + đóng modal
     const handleConfirm = () => {
         if (selectedType === "Combo") {
             const comboItems = form.description
@@ -184,8 +169,6 @@ export default function RequestDetailTable({ value, onChange }: DetailProps) {
         }
     };
 
-    // Add mode → đóng, GIỮ form
-    // Edit mode → đóng + reset form (tránh lẫn data)
     const handleCancel = () => {
         if (editingIndex !== null) {
             setForm({ ...emptyForm });
@@ -202,6 +185,13 @@ export default function RequestDetailTable({ value, onChange }: DetailProps) {
         onChange(updated);
     };
 
+    const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (fileInputRef.current) fileInputRef.current.value = "";
+        if (!file) return;
+        importFromExcel(file, data, onChange);
+    };
+
     return (
         <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
 
@@ -210,10 +200,34 @@ export default function RequestDetailTable({ value, onChange }: DetailProps) {
                 <h1 className="text-lg font-medium text-gray-800 dark:text-white">
                     Request Details
                 </h1>
+                <div className="flex items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={downloadTemplate}
+                        title="Download template"
+                        className="text-gray-400 hover:text-brand-500 transition-colors"
+                    >
+                        <DownloadIcon />
+                    </button>
+                    <Button variant="outline"
+                        size="sm"
+                        onClick={() => fileInputRef.current?.click()}>
+                        <ImportFile className="w-6 h-6" /> Import Excel
+                    </Button>
+                </div>
+            </div>
+            <div className="px-4 py-4 flex items-center justify-end border-b border-gray-100 dark:border-white/[0.05]">
                 <Button variant="outline" size="sm" onClick={handleOpenAdd}>
                     <PlusIcon /> Add Item
                 </Button>
             </div>
+            <input
+                ref={fileInputRef}
+                type="file"
+                accept=".xlsx,.xls"
+                className="hidden"
+                onChange={handleImportFile}
+            />
 
             {/* Table */}
             <div className="max-w-full overflow-x-auto">
@@ -239,7 +253,27 @@ export default function RequestDetailTable({ value, onChange }: DetailProps) {
                             {data.length === 0 ? (
                                 <tr>
                                     <td colSpan={11} className="px-5 py-10 text-center text-sm text-gray-400 dark:text-gray-500">
-                                        No items yet. Click &quot;+ Add Item&quot; to get started.
+                                        <p>
+                                            No items yet. Click &quot;+ Add Item&quot; or{" "}
+                                            <button
+                                                type="button"
+                                                onClick={() => fileInputRef.current?.click()}
+                                                className="text-brand-500 hover:underline"
+                                            >
+                                                Import Excel
+                                            </button>
+                                            {" "}to get started.
+                                        </p>
+                                        <p className="mt-1 text-xs">
+                                            <button
+                                                type="button"
+                                                onClick={downloadTemplate}
+                                                className="text-brand-500 hover:underline"
+                                            >
+                                                Download template
+                                            </button>
+                                            {" "}if you don&apos;t have one yet.
+                                        </p>
                                     </td>
                                 </tr>
                             ) : (
