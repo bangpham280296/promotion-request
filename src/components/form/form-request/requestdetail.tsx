@@ -15,6 +15,7 @@ import RequestDetailModal, { FormState } from "./RequestDetailModal";
 import { toDBDescription } from "./ComboDescriptionTable";
 import { toast } from "sonner";
 import { type Row, downloadTemplate, importFromExcel } from "./requestDetailExcel";
+import LoadRequestModal from "./LoadRequestModal";
 
 type DetailProps = {
     value: Row[];
@@ -76,6 +77,9 @@ export default function RequestDetailTable({ value, onChange }: DetailProps) {
     const [selectedType, setSelectedType] = useState("Item");
     const [comboTotal, setComboTotal] = useState(0);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const [loadModalOpen, setLoadModalOpen] = useState(false);
+    const [clearConfirming, setClearConfirming] = useState(false);
+    const clearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const data = value ?? [];
 
@@ -185,6 +189,18 @@ export default function RequestDetailTable({ value, onChange }: DetailProps) {
         onChange(updated);
     };
 
+    const handleClearRequest = () => {
+        if (!clearConfirming) {
+            setClearConfirming(true);
+            clearTimerRef.current = setTimeout(() => setClearConfirming(false), 4000);
+            return;
+        }
+        if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
+        setClearConfirming(false);
+        onChange([]);
+        toast.success("All request details have been deleted.", { position: "top-center" });
+    };
+
     const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (fileInputRef.current) fileInputRef.current.value = "";
@@ -196,30 +212,83 @@ export default function RequestDetailTable({ value, onChange }: DetailProps) {
         <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
 
             {/* Header */}
-            <div className="px-4 py-4 flex items-center justify-between border-b border-gray-100 dark:border-white/[0.05]">
-                <h1 className="text-lg font-medium text-gray-800 dark:text-white">
-                    Request Details
-                </h1>
-                <div className="flex items-center gap-2">
-                    <button
-                        type="button"
-                        onClick={downloadTemplate}
-                        title="Download template"
-                        className="text-gray-400 hover:text-brand-500 transition-colors"
-                    >
-                        <DownloadIcon />
-                    </button>
-                    <Button variant="outline"
-                        size="sm"
-                        onClick={() => fileInputRef.current?.click()}>
-                        <ImportFile className="w-6 h-6" /> Import Excel
+            <div className="px-4 border-b border-gray-100 dark:border-white/[0.05]">
+
+                {/* Row 1: Title + Import actions */}
+                <div className="py-3 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <h1 className="text-base font-semibold text-gray-800 dark:text-white">
+                            Request Details
+                        </h1>
+                        {data.length > 0 && (
+                            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400">
+                                {data.length} item{data.length !== 1 ? "s" : ""}
+                            </span>
+                        )}
+                    </div>
+                    <div className="flex items-center gap-1">
+                        <button
+                            type="button"
+                            onClick={downloadTemplate}
+                            title="Download template"
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-brand-500 hover:bg-gray-50 dark:hover:bg-white/[0.04] rounded-md transition-colors"
+                        >
+                            <DownloadIcon /> Template
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            title="Import items from Excel file"
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-brand-500 hover:bg-gray-50 dark:hover:bg-white/[0.04] rounded-md transition-colors"
+                        >
+                            <ImportFile className="w-4 h-4" /> Import Excel
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setLoadModalOpen(true)}
+                            title="Copy detail from an existing request"
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-brand-500 hover:bg-gray-50 dark:hover:bg-white/[0.04] rounded-md transition-colors"
+                        >
+                            <CopyIcon /> Load Request
+                        </button>
+                    </div>
+                </div>
+
+                {/* Row 2: Clear All + Add Item */}
+                <div className="pb-3 flex items-center justify-end gap-2">
+                    {data.length > 0 && (
+                        clearConfirming ? (
+                            <div className="flex items-center gap-1.5">
+                                <span className="text-xs text-red-500 whitespace-nowrap font-medium">Clear all?</span>
+                                <button
+                                    type="button"
+                                    onClick={() => { if (clearTimerRef.current) clearTimeout(clearTimerRef.current); setClearConfirming(false); }}
+                                    className="text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded border border-gray-200 dark:border-white/[0.1] transition-colors"
+                                >
+                                    No
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleClearRequest}
+                                    className="text-xs text-white bg-red-500 hover:bg-red-600 px-2 py-1 rounded transition-colors"
+                                >
+                                    Yes
+                                </button>
+                            </div>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={handleClearRequest}
+                                className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-md transition-colors"
+                            >
+                                <TrashBinIcon /> Clear All
+                            </button>
+                        )
+                    )}
+                    <Button size="sm" onClick={handleOpenAdd}>
+                        <PlusIcon /> Add Item
                     </Button>
                 </div>
-            </div>
-            <div className="px-4 py-4 flex items-center justify-end border-b border-gray-100 dark:border-white/[0.05]">
-                <Button variant="outline" size="sm" onClick={handleOpenAdd}>
-                    <PlusIcon /> Add Item
-                </Button>
             </div>
             <input
                 ref={fileInputRef}
@@ -326,6 +395,14 @@ export default function RequestDetailTable({ value, onChange }: DetailProps) {
                 onComboTotalChange={setComboTotal}
                 onConfirm={handleConfirm}
                 onCancel={handleCancel}
+            />
+
+            <LoadRequestModal
+                isOpen={loadModalOpen}
+                existingRows={data}
+                onAppend={(rows) => { onChange([...data, ...rows]); setLoadModalOpen(false); }}
+                onReplace={(rows) => { onChange(rows); setLoadModalOpen(false); }}
+                onClose={() => setLoadModalOpen(false)}
             />
         </div>
     );

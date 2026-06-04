@@ -16,8 +16,10 @@ import Button from "@/components/ui/button/Button";
 import { PencilIcon, ArrowUpIcon, ArrowDownIcon } from "@/icons";
 import { useAllItems, useCategories } from "@/hooks/useItems";
 import type { AllItem } from "@/hooks/useItems";
+import useProfile from "@/hooks/useProfile";
 import ItemEditModal from "./ItemEditModal";
 import CreateItemModal from "./CreateItemModal";
+import ItemSyncModal from "./ItemSyncModal";
 
 const ITEMS_PER_PAGE = 50;
 
@@ -28,11 +30,14 @@ export default function ItemTable() {
     const [editingItem, setEditingItem] = useState<AllItem | null>(null);
     const [createModalKey, setCreateModalKey] = useState(0);
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [showSyncModal, setShowSyncModal] = useState(false);
     const [sortAsc, setSortAsc] = useState(true);
 
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const { items, totalCount, loading, error, fetchAllItems } = useAllItems(ITEMS_PER_PAGE);
     const { categories } = useCategories();
+    const { profile } = useProfile();
+    const isAdmin = profile?.role === "admin";
 
     useEffect(() => {
         fetchAllItems(currentPage, search, categoryFilter, sortAsc);
@@ -110,6 +115,11 @@ export default function ItemTable() {
                     <Button size="sm" onClick={handleOpenCreate}>
                         + New Item
                     </Button>
+                    {isAdmin && (
+                        <Button variant="outline" size="sm" onClick={() => setShowSyncModal(true)}>
+                            Sync SQL
+                        </Button>
+                    )}
                     <span className="text-xs text-gray-400 dark:text-gray-500 whitespace-nowrap">
                         {totalCount.toLocaleString()} item{totalCount !== 1 ? "s" : ""}
                     </span>
@@ -244,6 +254,12 @@ export default function ItemTable() {
                 isOpen={showCreateModal}
                 onClose={() => setShowCreateModal(false)}
                 onSuccess={handleCreateSuccess}
+            />
+
+            <ItemSyncModal
+                isOpen={showSyncModal}
+                onClose={() => setShowSyncModal(false)}
+                onSuccess={() => fetchAllItems(1, search, categoryFilter, sortAsc)}
             />
         </div>
     );
