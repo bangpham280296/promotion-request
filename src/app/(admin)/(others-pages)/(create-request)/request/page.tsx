@@ -2,29 +2,41 @@
 
 import RequestInputs from "@/components/form/form-request/request";
 import RequestDetailTable from "@/components/form/form-request/requestdetail";
+import SubmitSuccessModal from "@/components/form/form-request/SubmitSuccessModal";
 import { useState } from "react";
 import useRequest from "@/hooks/useRequest";
 import useProfile from "@/hooks/useProfile";
 import Protected from "@/components/auth/ProtectPage";
 import { toast } from "sonner";
 import Button from "@/components/ui/button/Button";
+import { useRouter } from "next/navigation";
+import { useModal } from "@/hooks/useModal";
 
+const emptyReq = {
+    promotionname: "",
+    requester: "",
+    department: "",
+    startdate: "",
+    enddate: "",
+};
 
 export default function RequestForm() {
     const { profile } = useProfile();
     const { addRequest } = useRequest();
+    const router = useRouter();
+    const { isOpen: isSuccessOpen, openModal: openSuccess, closeModal: closeSuccess } = useModal();
 
     const [loading, setLoading] = useState(false);
-
-    const [req, setReq] = useState<any>({
-        promotionname: "",
-        requester: profile?.fullname || "",
-        department: "",
-        startdate: "",
-        enddate: "",
-    });
-
+    const [req, setReq] = useState<any>({ ...emptyReq });
     const [details, setDetails] = useState<any[]>([]);
+    const [submittedInfo, setSubmittedInfo] = useState({ requestcode: "", promotionname: "" });
+    const [codeRefreshKey, setCodeRefreshKey] = useState(0);
+
+    const resetForm = () => {
+        setReq({ ...emptyReq });
+        setDetails([]);
+        setCodeRefreshKey((k) => k + 1);
+    };
 
     const handleSubmit = async () => {
         if (loading) return;
@@ -32,7 +44,6 @@ export default function RequestForm() {
         try {
             setLoading(true);
 
-            // validate
             if (!req.promotionname) {
                 toast.error("Please enter promotion name");
                 return;
@@ -50,7 +61,6 @@ export default function RequestForm() {
                 return;
             }
 
-            // map detail UI → DB
             const mappedDetails = details.map((d) => ({
                 itemcode: d.itemcode,
                 itemname: d.itemname,
@@ -64,7 +74,6 @@ export default function RequestForm() {
                 itemtype: d.itemtype || null,
             }));
 
-            // map request → DB
             const mappedReq = {
                 promotionname: req.promotionname,
                 startdate: req.startdate,
@@ -75,20 +84,13 @@ export default function RequestForm() {
                 stt: 1,
             };
 
-            // CALL SUPABASE
-            await addRequest(mappedReq, mappedDetails);
-            toast.success("Request submitted successfully!");
+            const result = await addRequest(mappedReq, mappedDetails);
 
-
-            // reset form
-            setReq({
-                promotionname: "",
-                requester: "",
-                department: "",
-                startdate: "",
-                enddate: "",
+            setSubmittedInfo({
+                requestcode: result.requestcode ?? "",
+                promotionname: req.promotionname,
             });
-            setDetails([]);
+            openSuccess();
 
         } catch (err: any) {
             toast.error(err.message);
@@ -97,10 +99,20 @@ export default function RequestForm() {
         }
     };
 
+    const handleCreateNew = () => {
+        closeSuccess();
+        resetForm();
+    };
+
+    const handleViewHistory = () => {
+        closeSuccess();
+        router.push("/history-request");
+    };
+
     return (
         <Protected>
             <div>
-                <RequestInputs value={req} onChange={setReq} />
+                <RequestInputs value={req} onChange={setReq} refreshTrigger={codeRefreshKey} />
                 <RequestDetailTable value={details} onChange={setDetails} />
 
                 <div className="flex justify-center mt-5">
@@ -113,6 +125,14 @@ export default function RequestForm() {
                     </Button>
                 </div>
             </div>
+
+            <SubmitSuccessModal
+                isOpen={isSuccessOpen}
+                requestcode={submittedInfo.requestcode}
+                promotionname={submittedInfo.promotionname}
+                onCreateNew={handleCreateNew}
+                onViewHistory={handleViewHistory}
+            />
         </Protected>
     );
 }

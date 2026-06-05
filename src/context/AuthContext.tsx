@@ -2,6 +2,11 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase/supabaseClient";
+import { toast } from "sonner";
+
+// Cleared automatically when the browser tab/window is closed
+const SESSION_ALIVE_KEY = "sb-session-alive";
+const INACTIVITY_MS = 20 * 60 * 1000; // 20 minutes
 
 type AuthContextType = {
     user: any | null;
@@ -41,24 +46,65 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setProfileLoading(false);
     };
 
+    // Auth init + browser-close guard
     useEffect(() => {
-        // onAuthStateChange fires immediately with INITIAL_SESSION — no need for a separate getUser() call
-        const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
-            const u = session?.user ?? null;
-            setUser(u);
+        let listenerUnsub: (() => void) | null = null;
 
-            if (u && (event === "INITIAL_SESSION" || event === "SIGNED_IN")) {
-                await fetchProfile(u.id, u.email ?? "");
-            } else if (!u) {
-                setProfile(null);
-                setProfileLoading(false);
+        const init = async () => {
+            // If sessionStorage flag is missing, the browser was closed → force clear session
+            if (typeof window !== "undefined") {
+                if (!sessionStorage.getItem(SESSION_ALIVE_KEY)) {
+                    await supabase.auth.signOut();
+                }
+                sessionStorage.setItem(SESSION_ALIVE_KEY, "1");
             }
 
-            setAuthLoading(false);
-        });
+            // onAuthStateChange fires immediately with INITIAL_SESSION
+            const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
+                const u = session?.user ?? null;
+                setUser(u);
 
-        return () => listener.subscription.unsubscribe();
+                if (u && (event === "INITIAL_SESSION" || event === "SIGNED_IN")) {
+                    await fetchProfile(u.id, u.email ?? "");
+                } else if (!u) {
+                    setProfile(null);
+                    setProfileLoading(false);
+                }
+
+                setAuthLoading(false);
+            });
+
+            listenerUnsub = () => listener.subscription.unsubscribe();
+        };
+
+        init();
+
+        return () => listenerUnsub?.();
     }, []);
+
+    // Inactivity auto-logout after 20 minutes
+    useEffect(() => {
+        if (!user) return;
+
+        let inactivityTimer: ReturnType<typeof setTimeout>;
+
+        const resetTimer = () => {
+            clearTimeout(inactivityTimer);
+            inactivityTimer = setTimeout(async () => {
+                toast.info("You have been logged out due to inactivity.");
+                await supabase.auth.signOut();
+            }, INACTIVITY_MS);
+        };
+
+        const events = ["mousemove", "mousedown", "keydown", "touchstart", "scroll"];
+        events.forEach((e) => window.addEventListener(e, resetTimer, { passive: true }));
+        resetTimer(); // Start timer on login
+
+        return () => {
+            clearTimeout(inactivityTimer);
+            events.forEach((e) => window.removeEventListener(e, resetTimer));
+        };
+    }, [user]);
 
     const logout = async () => {
         await supabase.auth.signOut();

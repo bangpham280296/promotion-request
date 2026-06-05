@@ -11,9 +11,10 @@ import { supabase } from "@/lib/supabase/supabaseClient";
 type RequestProps = {
     value: any;
     onChange: (val: any) => void;
+    refreshTrigger?: number;
 };
 
-export default function RequestInputs({ value, onChange }: RequestProps) {
+export default function RequestInputs({ value, onChange, refreshTrigger = 0 }: RequestProps) {
     const { profile } = useProfile();
     const [previewCode, setPreviewCode] = useState("Generating...");
 
@@ -37,7 +38,8 @@ export default function RequestInputs({ value, onChange }: RequestProps) {
         };
 
         generatePreviewCode();
-    }, [profile?.department?.deptcode]);
+    // refreshTrigger increments after each submit to re-query the latest count
+    }, [profile?.department?.deptcode, refreshTrigger]);
 
     const handleChange = (field: string, fieldValue: any) => {
         onChange({

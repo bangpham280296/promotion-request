@@ -42,7 +42,7 @@ export default function useRequest() {
     const { data: requestData, error: requestError } = await supabase
       .from("requests")
       .insert([req])
-      .select("reqid")
+      .select("reqid, requestcode")
       .single();
 
     if (requestError) throw requestError;
