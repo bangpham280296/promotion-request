@@ -149,14 +149,6 @@ export default function SignInForm() {
                     </span>
                   </div>
                 </div>
-                <div className="flex justify-end">
-                  <Link
-                    href="/forgotpassword"
-                    className="text-sm text-brand-500 hover:text-brand-600 dark:text-brand-400"
-                  >
-                    Forgot password?
-                  </Link>
-                </div>
                 <div>
                   <Button type="submit" className="w-full" size="sm">
                     Sign in
