@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import {
     Table,
     TableBody,
@@ -11,28 +11,23 @@ import {
 import Badge from "@/components/ui/badge/Badge";
 import Pagination from "@/components/tables/Pagination";
 import Input from "@/components/form/input/InputField";
-import { supabase } from "@/lib/supabase/supabaseClient";
 import { useUserRequests } from "@/hooks/useUserRequests";
 import { EyeIcon } from "@/icons";
 import { useModal } from "@/hooks/useModal";
 import RequestViewModal from "@/components/history-request/RequestViewModal";
+import useAuth from "@/hooks/useAuth";
 
 export default function BasicTableOne() {
-    const [userId, setUserId] = useState<string | null>(null);
+    const { user, loading: authLoading } = useAuth();
+    const userId = user?.id ?? null;
     const [search, setSearch] = useState("");
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedReq, setSelectedReq] = useState<any>(null);
     const { isOpen, openModal, closeModal } = useModal();
 
-    useEffect(() => {
-        const getUser = async () => {
-            const { data } = await supabase.auth.getUser();
-            setUserId(data.user?.id ?? null);
-        };
-        getUser();
-    }, []);
+    const { requests, loading: requestLoading, error, editRequest } = useUserRequests(userId);
 
-    const { requests, loading, error, editRequest } = useUserRequests(userId);
+    const loading = authLoading || requestLoading;
 
     if (loading) return <p>Loading...</p>;
     if (error) return <p>Error: {error}</p>;

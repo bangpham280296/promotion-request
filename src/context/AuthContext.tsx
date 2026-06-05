@@ -42,28 +42,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
 
     useEffect(() => {
-        // Lấy session hiện tại — 1 lần duy nhất
-        supabase.auth.getUser().then(({ data }) => {
-            const u = data.user ?? null;
-            setUser(u);
-            setAuthLoading(false);
-            if (u) {
-                fetchProfile(u.id, u.email ?? "");
-            } else {
-                setProfileLoading(false);
-            }
-        });
-
-        // Lắng nghe thay đổi auth — 1 listener duy nhất cho toàn app
-        const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+        // onAuthStateChange fires immediately with INITIAL_SESSION — no need for a separate getUser() call
+        const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
             const u = session?.user ?? null;
             setUser(u);
-            if (u) {
+
+            if (u && (event === "INITIAL_SESSION" || event === "SIGNED_IN")) {
                 await fetchProfile(u.id, u.email ?? "");
-            } else {
+            } else if (!u) {
                 setProfile(null);
                 setProfileLoading(false);
             }
+
+            setAuthLoading(false);
         });
 
         return () => listener.subscription.unsubscribe();
