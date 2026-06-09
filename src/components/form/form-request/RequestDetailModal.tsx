@@ -5,16 +5,18 @@ import Button from "@/components/ui/button/Button";
 import Input from "@/components/form/input/InputField";
 import Label from "@/components/form/Label";
 import Select from "@/components/form/Select";
+import MultiSelect from "@/components/form/MultiSelect";
 import DatePicker from "@/components/form/date-picker";
 import { Modal } from "@/components/ui/modal";
 import Radio from "../input/Radio";
 import ComboDescriptionTable from "./ComboDescriptionTable";
+import { useServiceTypes } from "@/hooks/useServiceTypes";
 
 export type FormState = {
     itemcode: string;
     itemname: string;
     description: string;
-    servicetype: string;
+    servicetype: string[];
     discount: "" | string;
     price: "" | number;
     startdate: string;
@@ -52,6 +54,8 @@ export default function RequestDetailModal({
     onConfirm,
     onCancel,
 }: Props) {
+    const serviceTypeOptions = useServiceTypes();
+
     return (
         <Modal isOpen={isOpen} onClose={onCancel} className="max-w-[1100px] max-h-[90vh] flex flex-col p-0">
             {/* Fixed Header */}
@@ -154,12 +158,12 @@ export default function RequestDetailModal({
                     </div>
 
                     <div>
-                        <Label>Service Type</Label>
-                        <Input
-                            type="text"
-                            placeholder="e.g. Dine-in, Delivery..."
-                            value={form.servicetype}
-                            onChange={(e) => onFormChange("servicetype", e.target.value)}
+                        <MultiSelect
+                            key={`servicetype-${resetKey}-${editingIndex ?? "new"}`}
+                            label="Service Type"
+                            options={serviceTypeOptions}
+                            defaultSelected={form.servicetype}
+                            onChange={(vals) => onFormChange("servicetype", vals)}
                         />
                     </div>
 

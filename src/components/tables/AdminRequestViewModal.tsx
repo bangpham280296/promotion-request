@@ -77,9 +77,27 @@ export default function AdminRequestViewModal({ isOpen, onClose, request, onStat
     };
 
     const statusBadgeColor = (name: string): "success" | "warning" | "error" | "info" => {
-        if (name === "approved") return "success";
-        if (name === "rejected") return "error";
-        return "warning";
+        const n = name.toLowerCase();
+        if (n === "actived" || n === "active" || n === "approved") return "success";
+        if (n === "inactive" || n === "rejected") return "error";
+        if (n === "pending") return "warning";
+        return "info";
+    };
+
+    const getButtonClass = (opt: StatusOption) => {
+        const n = opt.name.toLowerCase();
+        const isSelected = localSttId === opt.id;
+        const isSuccess = n === "actived" || n === "active" || n === "approved";
+        const isDanger = n === "inactive" || n === "rejected";
+
+        if (isSelected) {
+            if (isSuccess) return "bg-green-100 text-green-700 border-green-300 dark:bg-green-500/20 dark:text-green-400 dark:border-green-500/30";
+            if (isDanger) return "bg-red-100 text-red-700 border-red-300 dark:bg-red-500/20 dark:text-red-400 dark:border-red-500/30";
+            return "bg-yellow-100 text-yellow-700 border-yellow-300 dark:bg-yellow-500/20 dark:text-yellow-400 dark:border-yellow-500/30";
+        }
+        if (isSuccess) return "bg-white text-green-600 border-green-300 hover:bg-green-50 dark:bg-transparent dark:text-green-400 dark:border-green-500/40 dark:hover:bg-green-500/10";
+        if (isDanger) return "bg-white text-red-600 border-red-300 hover:bg-red-50 dark:bg-transparent dark:text-red-400 dark:border-red-500/40 dark:hover:bg-red-500/10";
+        return "bg-white text-gray-500 border-gray-300 hover:bg-gray-50 dark:bg-transparent dark:text-gray-400 dark:border-white/[0.1] dark:hover:bg-white/[0.05]";
     };
 
     const currentStatus = statusOptions.find((s) => s.id === localSttId);
@@ -92,36 +110,31 @@ export default function AdminRequestViewModal({ isOpen, onClose, request, onStat
 
             {/* Fixed Header */}
             <div className="flex-shrink-0 px-6 lg:px-8 pt-16 pb-4 border-b border-gray-100 dark:border-white/[0.07]">
-                <div className="flex items-center justify-between mb-3 mt-3 gap-4 flex-wrap">
+                <div className="grid grid-cols-3 items-center mb-3 mt-3 gap-4">
                     <span className="text-xs font-semibold uppercase tracking-widest text-brand-500 dark:text-brand-400">
                         {request.requestcode}
                     </span>
 
-                    {/* Status change buttons — auto-populated from status table */}
-                    <div className="flex items-center gap-2 flex-wrap">
-                        {statusOptions.map((opt) => (
-                            <button
-                                key={opt.id}
-                                disabled={statusChanging || localSttId === opt.id}
-                                onClick={() => handleStatusChange(opt.id)}
-                                className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors disabled:opacity-60
-                                    ${localSttId === opt.id
-                                        ? opt.name === "approved"
-                                            ? "bg-green-100 text-green-700 border-green-300 dark:bg-green-500/20 dark:text-green-400 dark:border-green-500/30"
-                                            : opt.name === "rejected"
-                                            ? "bg-red-100 text-red-700 border-red-300 dark:bg-red-500/20 dark:text-red-400 dark:border-red-500/30"
-                                            : "bg-yellow-100 text-yellow-700 border-yellow-300 dark:bg-yellow-500/20 dark:text-yellow-400 dark:border-yellow-500/30"
-                                        : "bg-white text-gray-500 border-gray-300 hover:bg-gray-50 dark:bg-transparent dark:text-gray-400 dark:border-white/[0.1] dark:hover:bg-white/[0.05]"
-                                    }`}
-                            >
-                                {opt.name.charAt(0).toUpperCase() + opt.name.slice(1)}
-                            </button>
-                        ))}
+                    <div className="flex justify-center">
                         {currentStatus && (
                             <Badge color={statusBadgeColor(currentStatus.name)}>
                                 {currentStatus.name.charAt(0).toUpperCase() + currentStatus.name.slice(1)}
                             </Badge>
                         )}
+                    </div>
+
+                    {/* Status change buttons — auto-populated from status table */}
+                    <div className="flex items-center justify-end gap-2 flex-wrap">
+                        {statusOptions.map((opt) => (
+                            <button
+                                key={opt.id}
+                                disabled={statusChanging || localSttId === opt.id}
+                                onClick={() => handleStatusChange(opt.id)}
+                                className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors disabled:opacity-60 ${getButtonClass(opt)}`}
+                            >
+                                {opt.name.charAt(0).toUpperCase() + opt.name.slice(1)}
+                            </button>
+                        ))}
                     </div>
                 </div>
 

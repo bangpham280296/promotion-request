@@ -11,21 +11,31 @@ import {
 import Badge from "@/components/ui/badge/Badge";
 import Pagination from "@/components/tables/Pagination";
 import Input from "@/components/form/input/InputField";
+import Select from "@/components/form/Select";
 import { useUserRequests } from "@/hooks/useUserRequests";
 import { EyeIcon } from "@/icons";
 import { useModal } from "@/hooks/useModal";
 import RequestViewModal from "@/components/history-request/RequestViewModal";
 import useAuth from "@/hooks/useAuth";
 
+const statusBadgeColor = (name: string): "success" | "warning" | "error" | "info" => {
+    const n = name.toLowerCase();
+    if (n === "actived" || n === "active" || n === "approved") return "success";
+    if (n === "inactive" || n === "rejected") return "error";
+    if (n === "pending") return "warning";
+    return "info";
+};
+
 export default function BasicTableOne() {
     const { user, loading: authLoading } = useAuth();
     const userId = user?.id ?? null;
     const [search, setSearch] = useState("");
+    const [statusFilter, setStatusFilter] = useState("1");
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedReq, setSelectedReq] = useState<any>(null);
     const { isOpen, openModal, closeModal } = useModal();
 
-    const { requests, loading: requestLoading, error, editRequest } = useUserRequests(userId);
+    const { requests, loading: requestLoading, error, editRequest, deactivateRequest } = useUserRequests(userId);
 
     const loading = authLoading || requestLoading;
 
@@ -34,11 +44,20 @@ export default function BasicTableOne() {
 
     const itemsPerPage = 10;
 
-    const filteredData = requests.filter(
-        (item) =>
+    const statusFilterOptions = [
+        { value: "all", label: "All status" },
+        { value: "1", label: "Actived" },
+        { value: "2", label: "Inactive" },
+    ];
+
+    const filteredData = requests.filter((item) => {
+        const matchesSearch =
             (item.requestcode ?? "").toLowerCase().includes(search.toLowerCase()) ||
-            (item.promotionname ?? "").toLowerCase().includes(search.toLowerCase())
-    );
+            (item.promotionname ?? "").toLowerCase().includes(search.toLowerCase());
+        const matchesStatus =
+            statusFilter === "all" || String(item.stt?.id) === statusFilter;
+        return matchesSearch && matchesStatus;
+    });
 
     const totalPages = Math.ceil(filteredData.length / itemsPerPage);
     const paginatedData = filteredData.slice(
@@ -61,8 +80,8 @@ export default function BasicTableOne() {
 
     return (
         <div>
-            <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
-                <div className="p-4 flex justify-between">
+            <div className="rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
+                <div className="p-4 flex items-center justify-between gap-4">
                     <Input
                         type="text"
                         placeholder="Search..."
@@ -73,6 +92,16 @@ export default function BasicTableOne() {
                             setCurrentPage(1);
                         }}
                     />
+                    <div className="w-36 shrink-0">
+                        <Select
+                            options={statusFilterOptions}
+                            defaultValue="1"
+                            onChange={(val) => {
+                                setStatusFilter(val);
+                                setCurrentPage(1);
+                            }}
+                        />
+                    </div>
                 </div>
                 <div className="max-w-full overflow-x-auto">
                     <div className="min-w-[1102px]">
@@ -93,6 +122,9 @@ export default function BasicTableOne() {
                                     </TableCell>
                                     <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
                                         End date
+                                    </TableCell>
+                                    <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
+                                        Status
                                     </TableCell>
                                     <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-start text-theme-xs dark:text-gray-400">
                                         Action
@@ -142,6 +174,15 @@ export default function BasicTableOne() {
                                             </TableCell>
 
                                             <TableCell className="px-5 py-3 text-start">
+                                                {req.stt ? (
+                                                    <Badge color={statusBadgeColor(req.stt.name)}>
+                                                        {req.stt.name.charAt(0).toUpperCase() + req.stt.name.slice(1)}
+                                                    </Badge>
+                                                ) : (
+                                                    <span className="text-gray-400 text-theme-xs">—</span>
+                                                )}
+                                            </TableCell>
+                                            <TableCell className="px-5 py-3 text-start">
                                                 <div
                                                     className="relative inline-block group cursor-pointer"
                                                     onClick={() => handleViewDetail(req)}
@@ -174,6 +215,7 @@ export default function BasicTableOne() {
                 onClose={closeModal}
                 request={selectedReq}
                 onSave={editRequest}
+                onDeactivate={deactivateRequest}
             />
         </div>
     );

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Modal } from "@/components/ui/modal";
 import Button from "@/components/ui/button/Button";
 import Input from "@/components/form/input/InputField";
+import Select from "@/components/form/Select";
 import Badge from "@/components/ui/badge/Badge";
 import { FileIcon, PencilIcon, PlusIcon, TrashBinIcon } from "@/icons";
 import DatePicker from "@/components/form/date-picker";
@@ -14,10 +15,17 @@ import { toast } from "sonner";
 import { exportRequestToExcel } from "./exportRequestToExcel";
 
 const statusBadgeColor = (name: string): "success" | "warning" | "error" | "info" => {
-    if (name === "approved") return "success";
-    if (name === "rejected") return "error";
-    return "warning";
+    const n = name.toLowerCase();
+    if (n === "actived" || n === "active" || n === "approved") return "success";
+    if (n === "inactive" || n === "rejected") return "error";
+    if (n === "pending") return "warning";
+    return "info";
 };
+
+const STATUS_OPTIONS = [
+    { value: "1", label: "Actived" },
+    { value: "2", label: "Inactive" },
+];
 
 function DescriptionCell({ value }: { value: string }) {
     if (!value || !value.includes("|")) return <span>{value ?? "-"}</span>;
@@ -58,7 +66,7 @@ const emptyForm: FormState = {
     itemcode: "",
     itemname: "",
     description: "",
-    servicetype: "",
+    servicetype: [],
     discount: "",
     price: "",
     startdate: "",
@@ -76,12 +84,14 @@ type Props = {
     onClose: () => void;
     request: any;
     onSave: (reqid: number, header: any, details: any[], originalDetails: any[]) => Promise<void>;
+    onDeactivate?: (reqid: number) => Promise<void>;
 };
 
-export default function RequestViewModal({ isOpen, onClose, request, onSave }: Props) {
+export default function RequestViewModal({ isOpen, onClose, request, onSave, onDeactivate }: Props) {
     // --- View/Edit mode ---
     const [isEditing, setIsEditing] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [newSttId, setNewSttId] = useState<number | null>(null);
     const [pickerResetKey, setPickerResetKey] = useState(0);
     const [editData, setEditData] = useState({
         promotionname: "",
@@ -145,6 +155,7 @@ export default function RequestViewModal({ isOpen, onClose, request, onSave }: P
             enddate: request.enddate ?? "",
         });
         setDetails(mapDetailsFromRequest(request));
+        setNewSttId(null);
         setIsEditing(false);
     };
 
@@ -166,8 +177,12 @@ export default function RequestViewModal({ isOpen, onClose, request, onSave }: P
                 notes: d.notes || null,
             }));
             await onSave(request.reqid, editData, mappedDetails, originalDetails);
+            if (newSttId === 2 && onDeactivate) {
+                await onDeactivate(request.reqid);
+            }
             toast.success("Request updated successfully!", { position: "top-center" });
             setIsEditing(false);
+            setNewSttId(null);
             onClose();
         } catch (err: any) {
             toast.error(err.message ?? "Update failed", { position: "top-center" });
@@ -190,7 +205,7 @@ export default function RequestViewModal({ isOpen, onClose, request, onSave }: P
             itemcode: item.itemcode,
             itemname: item.itemname,
             description: item._descriptionFull ?? item.description,
-            servicetype: item.servicetype,
+            servicetype: item.servicetype ? item.servicetype.split(",").filter(Boolean) : [],
             discount: item.discount === null ? "" : String(item.discount),
             price: item.price ?? "",
             startdate: item.startdate,
@@ -209,7 +224,7 @@ export default function RequestViewModal({ isOpen, onClose, request, onSave }: P
         description: toDBDescription(f.description),
         _descriptionFull: f.description,
         itemtype: selectedType.toLowerCase(),
-        servicetype: f.servicetype,
+        servicetype: f.servicetype.join(","),
         discount: f.discount === "" ? null : f.discount,
         price: f.price === "" ? null : Number(f.price),
         startdate: f.startdate,
@@ -301,20 +316,23 @@ export default function RequestViewModal({ isOpen, onClose, request, onSave }: P
                             {request.requestcode}
                         </span>
 
-                        {request.stt ? (
-                            <div className="mt-1">
+                        <div>
+                            {isEditing && request.stt?.id === 1 ? (
+                                <div className="w-36">
+                                    <Select
+                                        options={STATUS_OPTIONS}
+                                        defaultValue="1"
+                                        onChange={(val) => setNewSttId(val === "2" ? 2 : null)}
+                                    />
+                                </div>
+                            ) : request.stt ? (
                                 <Badge color={statusBadgeColor(request.stt.name)}>
                                     {request.stt.name.charAt(0).toUpperCase() + request.stt.name.slice(1)}
                                 </Badge>
-                                {request.stt.description && (
-                                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                                        {request.stt.description}
-                                    </p>
-                                )}
-                            </div>
-                        ) : (
-                            <p className="text-sm text-gray-400">—</p>
-                        )}
+                            ) : (
+                                <span className="text-gray-400 text-sm">—</span>
+                            )}
+                        </div>
 
                         <Button
                             variant="outline"

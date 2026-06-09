@@ -19,9 +19,11 @@ import { useModal } from "@/hooks/useModal";
 import AdminRequestViewModal from "./AdminRequestViewModal";
 
 const statusBadgeColor = (name: string): "success" | "warning" | "error" | "info" => {
-  if (name === "approved") return "success";
-  if (name === "rejected") return "error";
-  return "warning";
+  const n = name.toLowerCase();
+  if (n === "approved" || n === "actived" || n === "active") return "success";
+  if (n === "rejected" || n === "inactive") return "error";
+  if (n === "pending") return "warning";
+  return "info";
 };
 
 export default function BasicTableOne() {
@@ -29,6 +31,7 @@ export default function BasicTableOne() {
   const { profile } = useProfile();
 
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("1");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [selectedReq, setSelectedReq] = useState<any>(null);
@@ -43,11 +46,20 @@ export default function BasicTableOne() {
     { value: "50", label: "50 / page" },
   ];
 
-  const filteredData = requests.filter(
-    (item) =>
+  const statusFilterOptions = [
+    { value: "all", label: "All status" },
+    { value: "1", label: "Actived" },
+    { value: "2", label: "Inactive" },
+  ];
+
+  const filteredData = requests.filter((item) => {
+    const matchesSearch =
       (item.requestcode ?? "").toLowerCase().includes(search.toLowerCase()) ||
-      (item.promotionname ?? "").toLowerCase().includes(search.toLowerCase())
-  );
+      (item.promotionname ?? "").toLowerCase().includes(search.toLowerCase());
+    const matchesStatus =
+      statusFilter === "all" || String(item.stt?.id) === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
 
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
   const paginatedData = filteredData.slice(
@@ -72,7 +84,7 @@ export default function BasicTableOne() {
 
   return (
     <div>
-      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
+      <div className="rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
         <div className="p-4 flex items-center justify-between gap-4">
           <Input
             type="text"
@@ -84,15 +96,27 @@ export default function BasicTableOne() {
               setCurrentPage(1);
             }}
           />
-          <div className="w-36 shrink-0">
-            <Select
-              options={pageSizeOptions}
-              defaultValue="10"
-              onChange={(val) => {
-                setItemsPerPage(Number(val));
-                setCurrentPage(1);
-              }}
-            />
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="w-36">
+              <Select
+                options={statusFilterOptions}
+                defaultValue="1"
+                onChange={(val) => {
+                  setStatusFilter(val);
+                  setCurrentPage(1);
+                }}
+              />
+            </div>
+            <div className="w-36">
+              <Select
+                options={pageSizeOptions}
+                defaultValue="10"
+                onChange={(val) => {
+                  setItemsPerPage(Number(val));
+                  setCurrentPage(1);
+                }}
+              />
+            </div>
           </div>
         </div>
 

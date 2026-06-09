@@ -37,39 +37,16 @@ export default function useRequest() {
     fetchRequests();
   }, [fetchRequests]);
 
-  // CREATE
+  // CREATE — atomic: cả requests + promotiondetail trong 1 PostgreSQL transaction
   const addRequest = async (req: any, details: any[]) => {
-    const { data: requestData, error: requestError } = await supabase
-      .from("requests")
-      .insert([req])
-      .select("reqid, requestcode")
-      .single();
+    const { data, error } = await supabase.rpc("insert_request_with_details", {
+      p_req: req,
+      p_details: details,
+    });
 
-    if (requestError) throw requestError;
+    if (error) throw error;
 
-    const reqid = requestData.reqid;
-
-    const detailPayload = details.map((d) => ({
-      reqid,
-      itemcode: d.itemcode,
-      itemname: d.itemname,
-      description: d.description,
-      discount: d.discount || null,
-      price: d.price ?? null,
-      startdate: d.startdate || null,
-      enddate: d.enddate || null,
-      servicetype: d.servicetype || null,
-      notes: d.notes || null,
-      itemtype: d.itemtype || null,
-    }));
-
-    const { error: detailError } = await supabase
-      .from("promotiondetail")
-      .insert(detailPayload);
-
-    if (detailError) throw detailError;
-
-    return requestData;
+    return data as { reqid: number; requestcode: string };
   };
 
   // EDIT — mirrors useUserRequests: UPDATE header + 3-way detail sync

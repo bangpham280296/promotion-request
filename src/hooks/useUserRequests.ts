@@ -103,5 +103,14 @@ export function useUserRequests(userId: string | null) {
     await fetchRequests();
   };
 
-  return { requests, loading, error, editRequest, fetchRequests };
+  const deactivateRequest = async (reqid: number) => {
+    const { error } = await supabase
+      .from("requests")
+      .update({ stt: 2 })
+      .eq("reqid", reqid);
+    if (error) throw error;
+    await fetchRequests();
+  };
+
+  return { requests, loading, error, editRequest, fetchRequests, deactivateRequest };
 }
