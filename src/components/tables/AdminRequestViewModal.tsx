@@ -44,6 +44,7 @@ export default function AdminRequestViewModal({ isOpen, onClose, request, onStat
     const [statusChanging, setStatusChanging] = useState(false);
     const [localSttId, setLocalSttId] = useState<number | null>(null);
     const [statusOptions, setStatusOptions] = useState<StatusOption[]>([]);
+    const [details, setDetails] = useState<any[]>([]);
 
     // Fetch status options from DB — auto-updates when new statuses are added
     useEffect(() => {
@@ -60,6 +61,16 @@ export default function AdminRequestViewModal({ isOpen, onClose, request, onStat
     useEffect(() => {
         if (request) setLocalSttId(request.stt?.id ?? null);
     }, [request, isOpen]);
+
+    // Lazy fetch promotiondetail khi modal mở
+    useEffect(() => {
+        if (!isOpen || !request?.reqid) { setDetails([]); return; }
+        supabase
+            .from("promotiondetail")
+            .select("reqdtlid, itemcode, itemname, description, itemtype, discount, price, startdate, enddate, servicetype, notes")
+            .eq("reqid", request.reqid)
+            .then(({ data }) => setDetails(data ?? []));
+    }, [isOpen, request?.reqid]);
 
     const handleStatusChange = async (sttId: number) => {
         if (!request || localSttId === sttId) return;
@@ -101,7 +112,6 @@ export default function AdminRequestViewModal({ isOpen, onClose, request, onStat
     };
 
     const currentStatus = statusOptions.find((s) => s.id === localSttId);
-    const details = request?.promotiondetail ?? [];
 
     if (!request) return null;
 

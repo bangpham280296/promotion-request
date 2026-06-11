@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from "react";
 import { Modal } from "@/components/ui/modal";
 import Input from "@/components/form/input/InputField";
+import Select from "@/components/form/Select";
 import {
     Table,
     TableBody,
@@ -10,7 +11,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import useItems from "@/hooks/useItems";
+import useItems, { useCategories } from "@/hooks/useItems";
 
 type Props = {
     isOpen: boolean;
@@ -20,37 +21,56 @@ type Props = {
 
 export default function ItemPickerModal({ isOpen, onClose, onSelect }: Props) {
     const [search, setSearch] = useState("");
+    const [categoryFilter, setCategoryFilter] = useState("all");
     const { items, loading, error } = useItems();
+    const { categories } = useCategories();
+
+    const categoryOptions = useMemo(() => [
+        { value: "all", label: "All categories" },
+        ...categories.map((c) => ({ value: String(c.id), label: c.Description })),
+    ], [categories]);
 
     const filtered = useMemo(() => {
         const q = search.toLowerCase().trim();
-        if (!q) return items;
-        return items.filter(
-            (item) =>
+        return items.filter((item) => {
+            const matchesSearch = !q ||
                 item.itemcode.toLowerCase().includes(q) ||
-                item.itemname.toLowerCase().includes(q)
-        );
-    }, [search, items]);
+                item.itemname.toLowerCase().includes(q);
+            const matchesCategory =
+                categoryFilter === "all" ||
+                String(item.category?.id) === categoryFilter;
+            return matchesSearch && matchesCategory;
+        });
+    }, [search, categoryFilter, items]);
 
     const handleSelect = (id: string, name: string, price: number) => {
         onSelect(id, name, price);
         setSearch("");
+        setCategoryFilter("all");
         onClose();
     };
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} className="max-w-[580px] p-5">
-            <h4 className="mb-8 text-base font-medium text-gray-800 dark:text-white/90">
+        <Modal isOpen={isOpen} onClose={onClose} className="max-w-[760px] p-5">
+            <h4 className="mb-4 text-base font-medium text-gray-800 dark:text-white/90">
                 Select Item
             </h4>
 
-            <div className="mb-3 mt-3">
+            <div className="mb-3 flex items-center gap-3">
                 <Input
                     type="text"
                     placeholder="Search by code or name..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                 />
+                <div className="w-48 shrink-0">
+                    <Select
+                        key={`cat-filter-${isOpen}`}
+                        options={categoryOptions}
+                        defaultValue="all"
+                        onChange={(val) => setCategoryFilter(val)}
+                    />
+                </div>
             </div>
 
             <div className="overflow-y-auto max-h-[360px] rounded-lg border border-gray-200 dark:border-white/[0.05]">
@@ -63,6 +83,9 @@ export default function ItemPickerModal({ isOpen, onClose, onSelect }: Props) {
                             <TableCell isHeader className="px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400">
                                 Name
                             </TableCell>
+                            <TableCell isHeader className="px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400">
+                                Category
+                            </TableCell>
                             <TableCell isHeader className="px-3 py-2 text-xs font-medium text-gray-500 dark:text-gray-400 text-right">
                                 Price
                             </TableCell>
@@ -72,19 +95,19 @@ export default function ItemPickerModal({ isOpen, onClose, onSelect }: Props) {
                     <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
                         {loading ? (
                             <tr>
-                                <td colSpan={3} className="px-3 py-6 text-center text-sm text-gray-400 dark:text-gray-500">
+                                <td colSpan={4} className="px-3 py-6 text-center text-sm text-gray-400 dark:text-gray-500">
                                     Loading...
                                 </td>
                             </tr>
                         ) : error ? (
                             <tr>
-                                <td colSpan={3} className="px-3 py-6 text-center text-sm text-red-400">
+                                <td colSpan={4} className="px-3 py-6 text-center text-sm text-red-400">
                                     Failed to load items.
                                 </td>
                             </tr>
                         ) : filtered.length === 0 ? (
                             <tr>
-                                <td colSpan={3} className="px-3 py-6 text-center text-sm text-gray-400 dark:text-gray-500">
+                                <td colSpan={4} className="px-3 py-6 text-center text-sm text-gray-400 dark:text-gray-500">
                                     No items found.
                                 </td>
                             </tr>
@@ -100,6 +123,9 @@ export default function ItemPickerModal({ isOpen, onClose, onSelect }: Props) {
                                     </TableCell>
                                     <TableCell className="px-3 py-2 text-sm text-gray-700 dark:text-gray-300">
                                         {item.itemname}
+                                    </TableCell>
+                                    <TableCell className="px-3 py-2 text-sm text-gray-400 dark:text-gray-500">
+                                        {item.category?.Description ?? "—"}
                                     </TableCell>
                                     <TableCell className="px-3 py-2 text-sm text-gray-700 dark:text-gray-300 text-right">
                                         {item.price.toLocaleString("vi-VN")}

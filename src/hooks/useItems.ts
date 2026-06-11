@@ -7,6 +7,7 @@ type PickerItem = {
   itemcode: string;
   itemname: string;
   price: number;
+  category: { id: number; Description: string } | null;
 };
 
 export type AllItem = {
@@ -32,7 +33,7 @@ export default function useItems() {
 
       const { data, error } = await supabase
         .from("items")
-        .select("itemcode, itemname, price")
+        .select("itemcode, itemname, price, category(id, Description)")
         .eq("itempicker", true)
         .order("itemcode", { ascending: true });
 
