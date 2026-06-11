@@ -40,7 +40,7 @@ export default function useItems() {
       if (error) {
         setError(error.message);
       } else {
-        setItems(data ?? []);
+        setItems((data as unknown as PickerItem[]) ?? []);
       }
       setLoading(false);
     };
