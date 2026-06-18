@@ -13,6 +13,8 @@ import { toDBDescription } from "./ComboDescriptionTable";
 import { useModal } from "@/hooks/useModal";
 import { toast } from "sonner";
 import { exportRequestToExcel } from "./exportRequestToExcel";
+import { usePOSVerify, type POSVerifyResult } from "@/hooks/usePOSVerify";
+import useProfile from "@/hooks/useProfile";
 
 const statusBadgeColor = (name: string): "success" | "warning" | "error" | "info" => {
     const n = name.toLowerCase();
@@ -111,6 +113,37 @@ export default function RequestViewModal({ isOpen, onClose, request, onSave, onD
     const [selectedType, setSelectedType] = useState("Item");
     const [comboTotal, setComboTotal] = useState(0);
 
+    const { profile } = useProfile();
+    const isAdmin = profile?.role === "admin";
+
+    const {
+        results: verifyResults,
+        loading: verifying,
+        error: verifyError,
+        verifiedAt,
+        verify,
+        reset: resetVerify,
+    } = usePOSVerify();
+
+    const [expandedDiff, setExpandedDiff] = useState<number | null>(null);
+
+    const verifyMap = new Map<number, POSVerifyResult>(
+        verifyResults.map((r) => [r.reqdtlid, r])
+    );
+
+    const handleVerifyPOS = () => {
+        const comboCombos = details
+            .filter((d) => d.itemtype === "combo")
+            .map((d) => ({
+                reqdtlid: d.reqdtlid,
+                itemcode: d.itemcode,
+                itemname: d.itemname,
+                enddate: d.enddate || null,
+            }));
+        verify(comboCombos);
+        setExpandedDiff(null);
+    };
+
     const mapDetailsFromRequest = (req: any) =>
         (req.promotiondetail ?? []).map((item: any, idx: number) => ({
             no: idx + 1,
@@ -140,6 +173,9 @@ export default function RequestViewModal({ isOpen, onClose, request, onSave, onD
             setOriginalDetails(mapped);
         }
         setIsEditing(false);
+        resetVerify();
+        setExpandedDiff(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [request, isOpen]);
 
     // --- Header edit handlers ---
@@ -414,19 +450,45 @@ export default function RequestViewModal({ isOpen, onClose, request, onSave, onD
 
                     {/* Promotion Items Table */}
                     <div className="rounded-xl border border-gray-100 dark:border-white/[0.07] overflow-hidden">
-                        <div className="px-4 py-3 border-b border-gray-100 dark:border-white/[0.07] bg-gray-50 dark:bg-white/[0.03] flex items-center justify-between">
+                        <div className="px-4 py-3 border-b border-gray-100 dark:border-white/[0.07] bg-gray-50 dark:bg-white/[0.03] flex items-center justify-between gap-2">
                             <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                                 Promotion Items
                                 <span className="ml-2 text-xs font-normal text-gray-400">
                                     ({details.length} item{details.length !== 1 ? "s" : ""})
                                 </span>
                             </p>
-                            {isEditing && (
-                                <Button variant="outline" size="sm" onClick={handleOpenAddItem}>
-                                    <PlusIcon /> Add Item
-                                </Button>
-                            )}
+                            <div className="flex items-center gap-2">
+                                {isAdmin && !isEditing && details.some((d) => d.itemtype === "combo") && (
+                                    <button
+                                        onClick={handleVerifyPOS}
+                                        disabled={verifying}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-brand-500 text-brand-600 hover:bg-brand-50 dark:border-brand-400 dark:text-brand-400 dark:hover:bg-brand-500/10 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                                    >
+                                        {verifying ? (
+                                            <>
+                                                <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">
+                                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                                                </svg>
+                                                Verifying...
+                                            </>
+                                        ) : (
+                                            "Verify POS"
+                                        )}
+                                    </button>
+                                )}
+                                {isEditing && (
+                                    <Button variant="outline" size="sm" onClick={handleOpenAddItem}>
+                                        <PlusIcon /> Add Item
+                                    </Button>
+                                )}
+                            </div>
                         </div>
+                        {verifyError && (
+                            <div className="px-4 py-2 text-xs text-red-500 bg-red-50 dark:bg-red-500/10 border-b border-red-100 dark:border-red-500/20">
+                                Verify error: {verifyError}
+                            </div>
+                        )}
                         <div className="overflow-x-auto">
                             <table className="min-w-full text-sm">
                                 <thead>
@@ -443,55 +505,117 @@ export default function RequestViewModal({ isOpen, onClose, request, onSave, onD
                                         {isEditing && (
                                             <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-400 dark:text-gray-500">Action</th>
                                         )}
+                                        {verifyResults.length > 0 && (
+                                            <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-400 dark:text-gray-500">
+                                                POS Status
+                                            </th>
+                                        )}
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
                                     {details.length === 0 ? (
                                         <tr>
-                                            <td colSpan={isEditing ? 10 : 9} className="px-4 py-6 text-center text-gray-400 dark:text-gray-500">
+                                            <td colSpan={isEditing ? (verifyResults.length > 0 ? 11 : 10) : (verifyResults.length > 0 ? 10 : 9)} className="px-4 py-6 text-center text-gray-400 dark:text-gray-500">
                                                 No items found.
                                             </td>
                                         </tr>
                                     ) : (
-                                        details.map((item, idx) => (
-                                            <tr key={item.reqdtlid ?? idx} className="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
-                                                <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{idx + 1}</td>
-                                                <td className="px-4 py-3 text-gray-700 dark:text-gray-300 font-medium">{item.itemcode || "-"}</td>
-                                                <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{item.itemname || "-"}</td>
-                                                <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
-                                                    <DescriptionCell value={item.description ?? ""} />
-                                                </td>
-                                                <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{item.servicetype || "-"}</td>
-                                                <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{item.discount ?? "-"}</td>
-                                                <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{item.price ?? "-"}</td>
-                                                <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{item.startdate || "-"}</td>
-                                                <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{item.enddate || "-"}</td>
-                                                {isEditing && (
-                                                    <td className="px-4 py-3">
-                                                        <div className="flex items-center gap-2">
-                                                            <button
-                                                                onClick={() => handleOpenEditItem(idx)}
-                                                                className="p-1.5 text-gray-400 hover:text-brand-500 rounded transition-colors"
-                                                                title="Edit item"
-                                                            >
-                                                                <PencilIcon />
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleDeleteItem(idx)}
-                                                                className="p-1.5 text-gray-400 hover:text-red-500 rounded transition-colors"
-                                                                title="Delete item"
-                                                            >
-                                                                <TrashBinIcon />
-                                                            </button>
-                                                        </div>
-                                                    </td>
-                                                )}
-                                            </tr>
-                                        ))
+                                        details.map((item, idx) => {
+                                            const posResult = item.reqdtlid ? verifyMap.get(item.reqdtlid) : undefined;
+                                            const isCombo = item.itemtype === "combo";
+                                            const isExpanded = expandedDiff === item.reqdtlid;
+
+                                            return (
+                                                <React.Fragment key={item.reqdtlid ?? idx}>
+                                                    <tr className="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
+                                                        <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{idx + 1}</td>
+                                                        <td className="px-4 py-3 text-gray-700 dark:text-gray-300 font-medium">{item.itemcode || "-"}</td>
+                                                        <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{item.itemname || "-"}</td>
+                                                        <td className="px-4 py-3 text-gray-700 dark:text-gray-300">
+                                                            <DescriptionCell value={item.description ?? ""} />
+                                                        </td>
+                                                        <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{item.servicetype || "-"}</td>
+                                                        <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{item.discount ?? "-"}</td>
+                                                        <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{item.price ?? "-"}</td>
+                                                        <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{item.startdate || "-"}</td>
+                                                        <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{item.enddate || "-"}</td>
+                                                        {isEditing && (
+                                                            <td className="px-4 py-3">
+                                                                <div className="flex items-center gap-2">
+                                                                    <button
+                                                                        onClick={() => handleOpenEditItem(idx)}
+                                                                        className="p-1.5 text-gray-400 hover:text-brand-500 rounded transition-colors"
+                                                                        title="Edit item"
+                                                                    >
+                                                                        <PencilIcon />
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => handleDeleteItem(idx)}
+                                                                        className="p-1.5 text-gray-400 hover:text-red-500 rounded transition-colors"
+                                                                        title="Delete item"
+                                                                    >
+                                                                        <TrashBinIcon />
+                                                                    </button>
+                                                                </div>
+                                                            </td>
+                                                        )}
+                                                        {verifyResults.length > 0 && (
+                                                            <td className="px-4 py-3">
+                                                                {!isCombo || !posResult ? (
+                                                                    <span className="text-gray-300 text-xs">—</span>
+                                                                ) : posResult.posStatus === "matched" ? (
+                                                                    <span className="text-xs font-medium text-green-600 dark:text-green-400">✅ Matched</span>
+                                                                ) : posResult.posStatus === "not_found" ? (
+                                                                    <span className="text-xs font-medium text-orange-500">⚠️ Not Found</span>
+                                                                ) : (
+                                                                    <button
+                                                                        onClick={() => setExpandedDiff(isExpanded ? null : item.reqdtlid)}
+                                                                        className="flex items-center gap-1 text-xs font-medium text-red-500 hover:text-red-600 transition-colors"
+                                                                    >
+                                                                        ❌ Mismatch
+                                                                        <span className="text-gray-400 text-[10px]">{isExpanded ? "▲" : "▼"}</span>
+                                                                    </button>
+                                                                )}
+                                                            </td>
+                                                        )}
+                                                    </tr>
+
+                                                    {isExpanded && posResult?.differences && (
+                                                        <tr className="bg-red-50/50 dark:bg-red-500/5">
+                                                            <td colSpan={isEditing ? (verifyResults.length > 0 ? 11 : 10) : (verifyResults.length > 0 ? 10 : 9)} className="px-8 py-3">
+                                                                <table className="text-xs w-auto border border-red-200 dark:border-red-500/30 rounded-lg overflow-hidden">
+                                                                    <thead>
+                                                                        <tr className="bg-red-100/60 dark:bg-red-500/10">
+                                                                            <th className="px-3 py-1.5 text-left font-medium text-gray-500 dark:text-gray-400">Field</th>
+                                                                            <th className="px-3 py-1.5 text-left font-medium text-gray-500 dark:text-gray-400">Request (DB)</th>
+                                                                            <th className="px-3 py-1.5 text-left font-medium text-gray-500 dark:text-gray-400">POS</th>
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody>
+                                                                        {posResult.differences.map((diff) => (
+                                                                            <tr key={diff.field} className="border-t border-red-200/50 dark:border-red-500/20">
+                                                                                <td className="px-3 py-1.5 font-mono text-gray-500 dark:text-gray-400">{diff.field}</td>
+                                                                                <td className="px-3 py-1.5 text-gray-700 dark:text-gray-300">{diff.requestValue}</td>
+                                                                                <td className="px-3 py-1.5 text-red-600 dark:text-red-400 font-medium">{diff.posValue}</td>
+                                                                            </tr>
+                                                                        ))}
+                                                                    </tbody>
+                                                                </table>
+                                                            </td>
+                                                        </tr>
+                                                    )}
+                                                </React.Fragment>
+                                            );
+                                        })
                                     )}
                                 </tbody>
                             </table>
                         </div>
+                        {verifiedAt && (
+                            <div className="px-4 py-2 text-xs text-gray-400 dark:text-gray-500 border-t border-gray-100 dark:border-white/[0.07] text-right">
+                                Verified at: {new Date(verifiedAt).toLocaleString("vi-VN")}
+                            </div>
+                        )}
                     </div>
                 </div>
 
