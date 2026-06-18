@@ -41,12 +41,10 @@ function normalizeDate(d: string | null): string {
 function compareCombo(input: ComboInput, pos: POSCombo): Difference[] {
   const diffs: Difference[] = [];
 
-  if (pos.proname.trim() !== input.itemname.trim()) {
-    diffs.push({
-      field: "proname",
-      requestValue: input.itemname.trim(),
-      posValue: pos.proname.trim(),
-    });
+  const posName = (pos.proname ?? "").trim();
+  const inputName = (input.itemname ?? "").trim();
+  if (posName !== inputName) {
+    diffs.push({ field: "proname", requestValue: inputName, posValue: posName });
   }
 
   const dbEnd = normalizeDate(input.enddate);
@@ -87,7 +85,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const { combos } = (await req.json()) as { combos: ComboInput[] };
+  let body: { combos?: ComboInput[] };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+  const { combos } = body;
 
   if (!Array.isArray(combos)) {
     return NextResponse.json({ error: "Invalid request body: combos must be an array" }, { status: 400 });
@@ -140,5 +144,15 @@ export async function POST(req: NextRequest) {
     };
   });
 
-  return NextResponse.json({ results, verifiedAt: new Date().toISOString() });
+  const matchedAny = results.some((r) => r.posStatus !== "not_found");
+  const diagnosticWarn =
+    results.length > 0 && !matchedAny
+      ? "0 POS records matched — verify POS_COMBO_API_URL and proid field format"
+      : undefined;
+
+  return NextResponse.json({
+    results,
+    verifiedAt: new Date().toISOString(),
+    ...(diagnosticWarn ? { warn: diagnosticWarn } : {}),
+  });
 }

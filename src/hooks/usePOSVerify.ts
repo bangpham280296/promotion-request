@@ -28,10 +28,18 @@ export function usePOSVerify() {
   const [error, setError] = useState<string | null>(null);
   const [verifiedAt, setVerifiedAt] = useState<string | null>(null);
 
+  const reset = useCallback(() => {
+    setResults([]);
+    setError(null);
+    setVerifiedAt(null);
+  }, []);
+
   const verify = useCallback(async (combos: ComboVerifyInput[]) => {
-    if (combos.length === 0) return;
+    if (combos.length === 0) { reset(); return; }
     setLoading(true);
     setError(null);
+    setResults([]);
+    setVerifiedAt(null);
 
     try {
       const res = await fetch("/api/combos/pos-verify", {
@@ -48,18 +56,12 @@ export function usePOSVerify() {
       const data = await res.json();
       setResults(data.results);
       setVerifiedAt(data.verifiedAt);
-    } catch (err: any) {
-      setError(err.message ?? "Verify failed");
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Verify failed");
     } finally {
       setLoading(false);
     }
-  }, []);
-
-  const reset = useCallback(() => {
-    setResults([]);
-    setError(null);
-    setVerifiedAt(null);
-  }, []);
+  }, [reset]);
 
   return { results, loading, error, verifiedAt, verify, reset };
 }
