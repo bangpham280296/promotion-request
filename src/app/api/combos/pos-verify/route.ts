@@ -89,6 +89,10 @@ export async function POST(req: NextRequest) {
 
   const { combos } = (await req.json()) as { combos: ComboInput[] };
 
+  if (!Array.isArray(combos)) {
+    return NextResponse.json({ error: "Invalid request body: combos must be an array" }, { status: 400 });
+  }
+
   const posUrl = process.env.POS_COMBO_API_URL;
   if (!posUrl) {
     return NextResponse.json(
@@ -102,6 +106,9 @@ export async function POST(req: NextRequest) {
     const res = await fetch(posUrl);
     if (!res.ok) throw new Error(`POS API returned ${res.status}`);
     posCombos = await res.json();
+    if (!Array.isArray(posCombos)) {
+      return NextResponse.json({ error: "POS API returned unexpected data format" }, { status: 502 });
+    }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json(
