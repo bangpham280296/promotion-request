@@ -10,15 +10,15 @@ type ComboInput = {
 };
 
 type POSCombo = {
-  proid: string;
-  proname: string;
+  id: number;
+  name: string;
   startdate: string | null;
   enddate: string | null;
   active: "Y" | "N";
 };
 
 type Difference = {
-  field: "proname" | "enddate" | "active";
+  field: "name" | "enddate" | "active";
   requestValue: string;
   posValue: string;
 };
@@ -40,10 +40,10 @@ function normalizeDate(d: string | null): string {
 function compareCombo(input: ComboInput, pos: POSCombo): Difference[] {
   const diffs: Difference[] = [];
 
-  const posName = (pos.proname ?? "").trim();
+  const posName = (pos.name ?? "").trim();
   const inputName = (input.itemname ?? "").trim();
   if (posName !== inputName) {
-    diffs.push({ field: "proname", requestValue: inputName, posValue: posName });
+    diffs.push({ field: "name", requestValue: inputName, posValue: posName });
   }
 
   const dbEnd = normalizeDate(input.enddate);
@@ -125,7 +125,7 @@ export async function POST(req: NextRequest) {
   }
 
   const posMap = new Map<string, POSCombo>(
-    posCombos.map((c) => [String(c.proid), c])
+    posCombos.map((c) => [String(c.id), c])
   );
 
   const results: VerifyResult[] = combos.map((input) => {

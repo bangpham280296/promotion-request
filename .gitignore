@@ -38,3 +38,8 @@ next-env.d.ts
 
 # Project documentation (local only)
 /ClaudeProject/
+
+/docs/
+
+# SQL scripts (local only)
+*.sql

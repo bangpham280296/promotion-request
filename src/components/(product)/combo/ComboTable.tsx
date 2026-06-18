@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import Badge from "@/components/ui/badge/Badge";
 import Pagination from "@/components/tables/Pagination";
@@ -19,13 +19,26 @@ const PRESETS = [
   { value: "party", label: "Party", min: 21000, max: 21999 },
 ];
 
+type SortField = "itemcode" | "itemname" | "price" | "startdate" | "enddate" | "posStatus";
+type SortDir = "asc" | "desc";
+type POSFilter = "matched" | "mismatch" | "not_found" | null;
+
+function toLocalMidnight(dateStr: string): Date {
+  const d = new Date(dateStr);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
 function getDateStatus(startdate: string | null, enddate: string | null) {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const start = startdate ? new Date(startdate) : null;
-  const end = enddate ? new Date(enddate) : null;
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const start = startdate ? toLocalMidnight(startdate) : null;
+  const end = enddate ? toLocalMidnight(enddate) : null;
 
   if (end && end < today) return { label: "Expired", color: "error" as const };
+  if (start && start.getTime() === tomorrow.getTime()) return { label: "Start Tomorrow", color: "warning" as const };
   if (start && start > today) return { label: "Upcoming", color: "info" as const };
   if (start || end) return { label: "Active", color: "success" as const };
   return { label: "No Date", color: "warning" as const };
@@ -40,6 +53,7 @@ const REQ_STATUS_COLOR: Record<string, "success" | "warning" | "error"> = {
   approved: "success",
   pending: "warning",
   rejected: "error",
+  inactive: "error",
 };
 
 export default function ComboTable() {
@@ -51,6 +65,10 @@ export default function ComboTable() {
   const [selected, setSelected] = useState<ComboRecord | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const [posFilter, setPosFilter] = useState<POSFilter>(null);
+  const [sortField, setSortField] = useState<SortField | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+
   const { combos, totalCount, loading, error, fetchCombos } = useCombos();
   const { profile } = useProfile();
   const isAdmin = profile?.role === "admin";
@@ -58,9 +76,69 @@ export default function ComboTable() {
   const { results: verifyResults, loading: verifying, error: verifyError, verifiedAt, verify } = usePOSVerify();
   const [expandedDiff, setExpandedDiff] = useState<number | null>(null);
 
-  const verifyMap = new Map<number, POSVerifyResult>(
-    verifyResults.map((r) => [r.reqdtlid, r])
+  const verifyMap = useMemo(
+    () => new Map<number, POSVerifyResult>(verifyResults.map((r) => [r.reqdtlid, r])),
+    [verifyResults]
   );
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortField(field);
+      setSortDir("asc");
+    }
+  };
+
+  const displayedCombos = useMemo(() => {
+    let list = [...combos];
+
+    if (posFilter && verifyResults.length > 0) {
+      list = list.filter((c) => verifyMap.get(c.reqdtlid)?.posStatus === posFilter);
+    }
+
+    if (sortField) {
+      list.sort((a, b) => {
+        let av: number | string = 0;
+        let bv: number | string = 0;
+        switch (sortField) {
+          case "itemcode":
+            av = parseInt(a.itemcode) || 0;
+            bv = parseInt(b.itemcode) || 0;
+            break;
+          case "itemname":
+            av = a.itemname ?? "";
+            bv = b.itemname ?? "";
+            break;
+          case "price":
+            av = a.price ?? 0;
+            bv = b.price ?? 0;
+            break;
+          case "startdate":
+            av = a.startdate ?? "";
+            bv = b.startdate ?? "";
+            break;
+          case "enddate":
+            av = a.enddate ?? "";
+            bv = b.enddate ?? "";
+            break;
+          case "posStatus": {
+            const order = { matched: 0, mismatch: 1, not_found: 2 };
+            const ar = verifyMap.get(a.reqdtlid);
+            const br = verifyMap.get(b.reqdtlid);
+            av = ar ? order[ar.posStatus] : 3;
+            bv = br ? order[br.posStatus] : 3;
+            break;
+          }
+        }
+        if (av < bv) return sortDir === "asc" ? -1 : 1;
+        if (av > bv) return sortDir === "asc" ? 1 : -1;
+        return 0;
+      });
+    }
+
+    return list;
+  }, [combos, posFilter, sortField, sortDir, verifyResults, verifyMap]);
 
   const handleVerifyPOS = () => {
     const input = combos.map((c) => ({
@@ -71,6 +149,7 @@ export default function ComboTable() {
     }));
     verify(input);
     setExpandedDiff(null);
+    setPosFilter(null);
   };
 
   const matchedCount = verifyResults.filter((r) => r.posStatus === "matched").length;
@@ -97,7 +176,6 @@ export default function ComboTable() {
     triggerFetch(1, value, parsedMin, parsedMax);
   };
 
-  // Preset dropdown — set both inputs and fetch immediately (no debounce)
   const handlePreset = (value: string) => {
     const preset = PRESETS.find((p) => p.value === value);
     if (!preset) return;
@@ -107,7 +185,6 @@ export default function ComboTable() {
     fetchCombos(1, search, preset.min, preset.max);
   };
 
-  // Manual input — reset the preset dropdown back to placeholder
   const handleMinCode = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setMinCode(value);
@@ -134,13 +211,29 @@ export default function ComboTable() {
     fetchCombos(1, search, null, null);
   };
 
-  const handlePageChange = (page: number) => setCurrentPage(page);
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+    setPosFilter(null);
+  };
 
   const handleDeleted = () => {
     fetchCombos(currentPage, search, parsedMin, parsedMax);
   };
 
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+  const hasVerify = verifyResults.length > 0;
+  const colSpan = hasVerify ? 10 : 9;
+
+  // Sort indicator for column headers
+  const SortIndicator = ({ field }: { field: SortField }) =>
+    sortField === field ? (
+      <span className="text-brand-500 text-[10px] ml-0.5">{sortDir === "asc" ? "▲" : "▼"}</span>
+    ) : (
+      <span className="text-gray-300 dark:text-gray-600 text-[10px] ml-0.5">⇅</span>
+    );
+
+  const sortableThClass =
+    "px-5 py-3 font-medium text-gray-500 text-theme-xs dark:text-gray-400 cursor-pointer select-none whitespace-nowrap hover:text-gray-700 dark:hover:text-gray-300 transition-colors";
 
   return (
     <div>
@@ -156,7 +249,6 @@ export default function ComboTable() {
             />
           </div>
 
-          {/* Preset dropdown */}
           <div className="w-52">
             <Select
               key={selectKey}
@@ -167,26 +259,13 @@ export default function ComboTable() {
             />
           </div>
 
-          {/* Manual range inputs */}
           <div className="flex items-center gap-2">
             <div className="w-28">
-              <Input
-                type="number"
-                placeholder="From"
-                min="0"
-                value={minCode}
-                onChange={handleMinCode}
-              />
+              <Input type="number" placeholder="From" min="0" value={minCode} onChange={handleMinCode} />
             </div>
             <span className="text-xs text-gray-400 dark:text-gray-500">—</span>
             <div className="w-28">
-              <Input
-                type="number"
-                placeholder="To"
-                min="0"
-                value={maxCode}
-                onChange={handleMaxCode}
-              />
+              <Input type="number" placeholder="To" min="0" value={maxCode} onChange={handleMaxCode} />
             </div>
             {hasRangeFilter && (
               <button
@@ -228,11 +307,48 @@ export default function ComboTable() {
             Verify error: {verifyError}
           </div>
         )}
-        {verifyResults.length > 0 && !verifyError && (
-          <div className="px-4 py-2 flex items-center gap-4 text-xs border-b border-gray-100 dark:border-white/[0.05] bg-gray-50 dark:bg-white/[0.02]">
-            <span className="text-green-600 dark:text-green-400 font-medium">✅ {matchedCount} matched</span>
-            <span className="text-red-500 font-medium">❌ {mismatchCount} mismatch</span>
-            <span className="text-orange-500 font-medium">⚠️ {notFoundCount} not found</span>
+
+        {/* Summary filter bar */}
+        {hasVerify && !verifyError && (
+          <div className="px-4 py-2 flex items-center gap-2 text-xs border-b border-gray-100 dark:border-white/[0.05] bg-gray-50 dark:bg-white/[0.02]">
+            <button
+              onClick={() => setPosFilter(posFilter === "matched" ? null : "matched")}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-full font-medium transition-colors ${
+                posFilter === "matched"
+                  ? "bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400 ring-1 ring-green-400"
+                  : "text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-500/10"
+              }`}
+            >
+              ✅ {matchedCount} matched
+            </button>
+            <button
+              onClick={() => setPosFilter(posFilter === "mismatch" ? null : "mismatch")}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-full font-medium transition-colors ${
+                posFilter === "mismatch"
+                  ? "bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400 ring-1 ring-red-400"
+                  : "text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10"
+              }`}
+            >
+              ❌ {mismatchCount} mismatch
+            </button>
+            <button
+              onClick={() => setPosFilter(posFilter === "not_found" ? null : "not_found")}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-full font-medium transition-colors ${
+                posFilter === "not_found"
+                  ? "bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-400 ring-1 ring-orange-400"
+                  : "text-orange-500 hover:bg-orange-50 dark:hover:bg-orange-500/10"
+              }`}
+            >
+              ⚠️ {notFoundCount} not found
+            </button>
+            {posFilter && (
+              <button
+                onClick={() => setPosFilter(null)}
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-[10px] px-1.5 py-0.5 rounded border border-gray-200 dark:border-white/10 transition-colors"
+              >
+                Clear filter
+              </button>
+            )}
             {verifiedAt && (
               <span className="text-gray-400 ml-auto">
                 Verified at: {new Date(verifiedAt).toLocaleString("vi-VN")}
@@ -249,21 +365,21 @@ export default function ComboTable() {
                 <TableCell isHeader className="px-5 py-3 w-12 text-center font-medium text-gray-500 text-theme-xs dark:text-gray-400">
                   No.
                 </TableCell>
-                <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-theme-xs dark:text-gray-400">
-                  Combo Code
-                </TableCell>
-                <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-theme-xs dark:text-gray-400">
-                  Combo Name
-                </TableCell>
-                <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-theme-xs dark:text-gray-400 text-end">
-                  Price (VND)
-                </TableCell>
-                <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-theme-xs dark:text-gray-400">
-                  Start Date
-                </TableCell>
-                <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-theme-xs dark:text-gray-400">
-                  End Date
-                </TableCell>
+                <th className={sortableThClass} onClick={() => handleSort("itemcode")}>
+                  Combo Code <SortIndicator field="itemcode" />
+                </th>
+                <th className={sortableThClass} onClick={() => handleSort("itemname")}>
+                  Combo Name <SortIndicator field="itemname" />
+                </th>
+                <th className={`${sortableThClass} text-end`} onClick={() => handleSort("price")}>
+                  Price (VND) <SortIndicator field="price" />
+                </th>
+                <th className={sortableThClass} onClick={() => handleSort("startdate")}>
+                  Start Date <SortIndicator field="startdate" />
+                </th>
+                <th className={sortableThClass} onClick={() => handleSort("enddate")}>
+                  End Date <SortIndicator field="enddate" />
+                </th>
                 <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-theme-xs dark:text-gray-400">
                   Status
                 </TableCell>
@@ -273,10 +389,10 @@ export default function ComboTable() {
                 <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-theme-xs dark:text-gray-400">
                   Req Status
                 </TableCell>
-                {verifyResults.length > 0 && (
-                  <TableCell isHeader className="px-5 py-3 font-medium text-gray-500 text-theme-xs dark:text-gray-400">
-                    POS Status
-                  </TableCell>
+                {hasVerify && (
+                  <th className={sortableThClass} onClick={() => handleSort("posStatus")}>
+                    POS Status <SortIndicator field="posStatus" />
+                  </th>
                 )}
               </TableRow>
             </TableHeader>
@@ -284,24 +400,24 @@ export default function ComboTable() {
             <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
               {loading ? (
                 <tr>
-                  <td colSpan={verifyResults.length > 0 ? 10 : 9} className="px-5 py-8 text-center text-sm text-gray-400 dark:text-gray-500">
+                  <td colSpan={colSpan} className="px-5 py-8 text-center text-sm text-gray-400 dark:text-gray-500">
                     Loading...
                   </td>
                 </tr>
               ) : error ? (
                 <tr>
-                  <td colSpan={verifyResults.length > 0 ? 10 : 9} className="px-5 py-8 text-center text-sm text-red-400">
+                  <td colSpan={colSpan} className="px-5 py-8 text-center text-sm text-red-400">
                     Error: {error}
                   </td>
                 </tr>
-              ) : combos.length === 0 ? (
+              ) : displayedCombos.length === 0 ? (
                 <tr>
-                  <td colSpan={verifyResults.length > 0 ? 10 : 9} className="px-5 py-8 text-center text-sm text-gray-400 dark:text-gray-500">
-                    No combos found.
+                  <td colSpan={colSpan} className="px-5 py-8 text-center text-sm text-gray-400 dark:text-gray-500">
+                    {posFilter ? "No combos match this filter." : "No combos found."}
                   </td>
                 </tr>
               ) : (
-                combos.map((combo, idx) => {
+                displayedCombos.map((combo, idx) => {
                   const dateStatus = getDateStatus(combo.startdate, combo.enddate);
                   const reqStatus = combo.requests?.stt?.name ?? "";
                   const reqStatusColor = REQ_STATUS_COLOR[reqStatus.toLowerCase()] ?? "warning";
@@ -345,7 +461,7 @@ export default function ComboTable() {
                             <span className="text-gray-400 text-theme-sm">—</span>
                           )}
                         </TableCell>
-                        {verifyResults.length > 0 && (
+                        {hasVerify && (
                           <td className="px-5 py-3" onClick={(e) => e.stopPropagation()}>
                             {!posResult ? (
                               <span className="text-gray-300 text-theme-xs">—</span>
@@ -368,7 +484,7 @@ export default function ComboTable() {
 
                       {isExpanded && posResult?.differences && (
                         <tr className="bg-red-50/50 dark:bg-red-500/5">
-                          <td colSpan={verifyResults.length > 0 ? 10 : 9} className="px-8 py-3">
+                          <td colSpan={colSpan} className="px-8 py-3">
                             <table className="text-xs w-auto border border-red-200 dark:border-red-500/30 rounded-lg overflow-hidden">
                               <thead>
                                 <tr className="bg-red-100/60 dark:bg-red-500/10">
@@ -408,7 +524,6 @@ export default function ComboTable() {
         />
       </div>
 
-      {/* Detail modal */}
       <ComboDetailModal
         isOpen={!!selected}
         combo={selected}

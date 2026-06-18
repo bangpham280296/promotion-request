@@ -4,7 +4,7 @@ import { useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase/supabaseClient";
 
 export type POSDifference = {
-  field: "proname" | "enddate" | "active";
+  field: "name" | "enddate" | "active";
   requestValue: string;
   posValue: string;
 };
