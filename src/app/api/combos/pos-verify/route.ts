@@ -1,6 +1,5 @@
 // src/app/api/combos/pos-verify/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/supabaseAdmin";
 
 type ComboInput = {
@@ -65,12 +64,13 @@ function compareCombo(input: ComboInput, pos: POSCombo): Difference[] {
 }
 
 export async function POST(req: NextRequest) {
-  const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  const authHeader = req.headers.get("authorization");
+  const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+  if (!token) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
+  const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
   if (authError || !user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -98,6 +98,7 @@ export async function POST(req: NextRequest) {
   }
 
   const posUrl = process.env.POS_COMBO_API_URL;
+  const posApiKey = process.env.POS_COMBO_API_KEY;
   if (!posUrl) {
     return NextResponse.json(
       { error: "POS_COMBO_API_URL is not configured in .env.local" },
@@ -107,7 +108,9 @@ export async function POST(req: NextRequest) {
 
   let posCombos: POSCombo[];
   try {
-    const res = await fetch(posUrl);
+    const headers: Record<string, string> = {};
+    if (posApiKey) headers["X-API-KEY"] = posApiKey;
+    const res = await fetch(posUrl, { headers });
     if (!res.ok) throw new Error(`POS API returned ${res.status}`);
     posCombos = await res.json();
     if (!Array.isArray(posCombos)) {
