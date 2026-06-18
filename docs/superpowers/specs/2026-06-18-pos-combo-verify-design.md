@@ -50,6 +50,10 @@ Một combo được coi là **`matched`** khi tất cả điều kiện sau đ�
 
 **`startdate` chỉ hiển thị, không so sánh** — vì POS thường để null khi đang test trước khi chạy chính thức.
 
+**Chuẩn hóa trước khi so sánh:**
+- `proname` vs `itemname`: trim whitespace, so sánh exact (case-sensitive)
+- `enddate`: normalize về `YYYY-MM-DD` trước khi so sánh — POS có thể trả về format khác
+
 ### Các trạng thái kết quả
 
 | Status | Ý nghĩa |
@@ -102,10 +106,11 @@ Cùng `itemcode` có thể xuất hiện nhiều lần trong `promotiondetail` (
 **Server flow:**
 1. Verify admin session → 403 nếu không phải admin
 2. Fetch `POS_COMBO_API_URL` → lấy toàn bộ combo POS
+   - Nếu POS API lỗi hoặc không thể kết nối → trả về HTTP 502 với message rõ ràng
 3. Với mỗi combo trong input:
    - Tìm POS combo có `proid === itemcode`
    - Nếu không tìm thấy → `not_found`
-   - Nếu tìm thấy → so sánh `proname`, `enddate`, `active`
+   - Nếu tìm thấy → so sánh `proname` (trim), `enddate` (normalize YYYY-MM-DD), `active`
    - Build danh sách `differences`
    - Status = `matched` nếu `differences.length === 0`, ngược lại `mismatch`
 4. Trả về `results` + `verifiedAt`
