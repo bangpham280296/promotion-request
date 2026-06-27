@@ -101,7 +101,7 @@ export default function BasicTableOne() {
     let query = supabase
       .from("requests")
       .select(
-        `reqid, requestcode, promotionname, startdate, enddate, createdate,
+        `reqid, requestcode, promotionname, startdate, enddate, createdate, updateat,
          department(deptname),
          employees:employees!request_requester_fkey(fullname),
          stt:status(id, name)`,

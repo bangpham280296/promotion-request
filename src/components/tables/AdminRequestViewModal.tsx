@@ -7,6 +7,14 @@ import { FileIcon } from "@/icons";
 import { toast } from "sonner";
 import { exportRequestToExcel } from "@/components/history-request/exportRequestToExcel";
 import { supabase } from "@/lib/supabase/supabaseClient";
+import { usePOSVerify, type POSVerifyResult } from "@/hooks/usePOSVerify";
+import {
+    POSVerifyButton,
+    POSVerifyFilterBar,
+    POSVerifyStatusCell,
+    POSVerifyDiffRow,
+    type PosFilter,
+} from "@/components/pos-verify/POSVerify";
 
 function DescriptionCell({ value }: { value: string }) {
     if (!value || !value.includes("|")) return <span>{value ?? "-"}</span>;
@@ -45,6 +53,21 @@ export default function AdminRequestViewModal({ isOpen, onClose, request, onStat
     const [localSttId, setLocalSttId] = useState<number | null>(null);
     const [statusOptions, setStatusOptions] = useState<StatusOption[]>([]);
     const [details, setDetails] = useState<any[]>([]);
+    const [expandedDiff, setExpandedDiff] = useState<number | null>(null);
+    const [posFilter, setPosFilter] = useState<PosFilter>(null);
+
+    const {
+        results: verifyResults,
+        loading: verifying,
+        error: verifyError,
+        verifiedAt,
+        verify,
+        reset: resetVerify,
+    } = usePOSVerify();
+
+    const verifyMap = new Map<number, POSVerifyResult>(
+        verifyResults.map((r) => [r.reqdtlid, r])
+    );
 
     // Fetch status options from DB — auto-updates when new statuses are added
     useEffect(() => {
@@ -62,15 +85,39 @@ export default function AdminRequestViewModal({ isOpen, onClose, request, onStat
         if (request) setLocalSttId(request.stt?.id ?? null);
     }, [request, isOpen]);
 
-    // Lazy fetch promotiondetail khi modal mở
+    // Lazy fetch promotiondetail khi modal mở; reset POS state khi đổi request
     useEffect(() => {
-        if (!isOpen || !request?.reqid) { setDetails([]); return; }
+        if (!isOpen || !request?.reqid) {
+            setDetails([]);
+            resetVerify();
+            setExpandedDiff(null);
+            setPosFilter(null);
+            return;
+        }
+        resetVerify();
+        setExpandedDiff(null);
+        setPosFilter(null);
         supabase
             .from("promotiondetail")
             .select("reqdtlid, itemcode, itemname, description, itemtype, discount, price, startdate, enddate, servicetype, notes")
             .eq("reqid", request.reqid)
             .then(({ data }) => setDetails(data ?? []));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen, request?.reqid]);
+
+    const handleVerifyPOS = () => {
+        const combos = details
+            .filter((d) => d.itemtype === "combo")
+            .map((d) => ({
+                reqdtlid: d.reqdtlid,
+                itemcode: d.itemcode,
+                itemname: d.itemname,
+                enddate: d.enddate || null,
+            }));
+        verify(combos);
+        setExpandedDiff(null);
+        setPosFilter(null);
+    };
 
     const handleStatusChange = async (sttId: number) => {
         if (!request || localSttId === sttId) return;
@@ -113,10 +160,20 @@ export default function AdminRequestViewModal({ isOpen, onClose, request, onStat
 
     const currentStatus = statusOptions.find((s) => s.id === localSttId);
 
+    const hasVerifyResults = verifyResults.length > 0;
+    const totalCols = hasVerifyResults ? 11 : 10;
+
+    const filteredDetails = details.filter((item) => {
+        if (!posFilter || !hasVerifyResults) return true;
+        if (item.itemtype !== "combo") return true;
+        const posResult = item.reqdtlid ? verifyMap.get(item.reqdtlid) : undefined;
+        return posResult?.posStatus === posFilter;
+    });
+
     if (!request) return null;
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} className="max-w-[1200px] max-h-[90vh] flex flex-col p-0">
+        <Modal isOpen={isOpen} onClose={onClose} className="max-w-[1500px] w-[95vw] max-h-[90vh] flex flex-col p-0">
 
             {/* Fixed Header */}
             <div className="flex-shrink-0 px-6 lg:px-8 pt-16 pb-4 border-b border-gray-100 dark:border-white/[0.07]">
@@ -164,6 +221,7 @@ export default function AdminRequestViewModal({ isOpen, onClose, request, onStat
                         { label: "Created date", value: formatVNDateTime(request.createdate) },
                         { label: "Start date", value: request.startdate },
                         { label: "End date", value: request.enddate },
+                        { label: "Updated at", value: formatVNDateTime(request.updateat) },
                     ].map(({ label, value }) => (
                         <div key={label} className="rounded-xl border border-gray-100 dark:border-white/[0.07] bg-gray-50 dark:bg-white/[0.03] px-4 py-3">
                             <p className="text-xs text-gray-400 dark:text-gray-500 mb-1">{label}</p>
@@ -174,14 +232,37 @@ export default function AdminRequestViewModal({ isOpen, onClose, request, onStat
 
                 {/* Promotion Items Table */}
                 <div className="rounded-xl border border-gray-100 dark:border-white/[0.07] overflow-hidden">
-                    <div className="px-4 py-3 border-b border-gray-100 dark:border-white/[0.07] bg-gray-50 dark:bg-white/[0.03]">
+                    <div className="px-4 py-3 border-b border-gray-100 dark:border-white/[0.07] bg-gray-50 dark:bg-white/[0.03] flex items-center justify-between gap-2">
                         <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                             Promotion Items
                             <span className="ml-2 text-xs font-normal text-gray-400">
                                 ({details.length} item{details.length !== 1 ? "s" : ""})
                             </span>
                         </p>
+                        {details.some((d) => d.itemtype === "combo") && (
+                            <POSVerifyButton
+                                onClick={handleVerifyPOS}
+                                loading={verifying}
+                                disabled={details.length === 0}
+                            />
+                        )}
                     </div>
+
+                    {verifyError && (
+                        <div className="px-4 py-2 text-xs text-red-500 bg-red-50 dark:bg-red-500/10 border-b border-red-100 dark:border-red-500/20">
+                            Verify error: {verifyError}
+                        </div>
+                    )}
+
+                    {hasVerifyResults && (
+                        <POSVerifyFilterBar
+                            results={verifyResults}
+                            posFilter={posFilter}
+                            onFilterChange={setPosFilter}
+                            verifiedAt={verifiedAt}
+                        />
+                    )}
+
                     <div className="overflow-x-auto">
                         <table className="min-w-full text-sm">
                             <thead>
@@ -189,30 +270,57 @@ export default function AdminRequestViewModal({ isOpen, onClose, request, onStat
                                     {["No.", "Item Code", "Item Name", "Description", "Service Type", "Discount", "Price", "Start", "End", "Notes"].map((h) => (
                                         <th key={h} className="px-4 py-2.5 text-left text-xs font-medium text-gray-400 dark:text-gray-500 whitespace-nowrap">{h}</th>
                                     ))}
+                                    {hasVerifyResults && (
+                                        <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-400 dark:text-gray-500 whitespace-nowrap">POS Status</th>
+                                    )}
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
-                                {details.length === 0 ? (
+                                {filteredDetails.length === 0 ? (
                                     <tr>
-                                        <td colSpan={10} className="px-4 py-6 text-center text-gray-400 dark:text-gray-500">
+                                        <td colSpan={totalCols} className="px-4 py-6 text-center text-gray-400 dark:text-gray-500">
                                             No items found.
                                         </td>
                                     </tr>
                                 ) : (
-                                    details.map((item: any, idx: number) => (
-                                        <tr key={item.reqdtlid ?? idx} className="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
-                                            <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{idx + 1}</td>
-                                            <td className="px-4 py-3 font-medium text-gray-700 dark:text-gray-300">{item.itemcode || "-"}</td>
-                                            <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{item.itemname || "-"}</td>
-                                            <td className="px-4 py-3 text-gray-700 dark:text-gray-300"><DescriptionCell value={item.description ?? ""} /></td>
-                                            <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{item.servicetype || "-"}</td>
-                                            <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{item.discount ?? "-"}</td>
-                                            <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{item.price ?? "-"}</td>
-                                            <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">{item.startdate || "-"}</td>
-                                            <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">{item.enddate || "-"}</td>
-                                            <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{item.notes || "-"}</td>
-                                        </tr>
-                                    ))
+                                    filteredDetails.map((item: any, idx: number) => {
+                                        const posResult = item.reqdtlid ? verifyMap.get(item.reqdtlid) : undefined;
+                                        const isCombo = item.itemtype === "combo";
+                                        const isExpanded = expandedDiff === item.reqdtlid;
+
+                                        return (
+                                            <React.Fragment key={item.reqdtlid ?? idx}>
+                                                <tr className="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
+                                                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{idx + 1}</td>
+                                                    <td className="px-4 py-3 font-medium text-gray-700 dark:text-gray-300">{item.itemcode || "-"}</td>
+                                                    <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{item.itemname || "-"}</td>
+                                                    <td className="px-4 py-3 text-gray-700 dark:text-gray-300"><DescriptionCell value={item.description ?? ""} /></td>
+                                                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{item.servicetype || "-"}</td>
+                                                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{item.discount ?? "-"}</td>
+                                                    <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{item.price ?? "-"}</td>
+                                                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">{item.startdate || "-"}</td>
+                                                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">{item.enddate || "-"}</td>
+                                                    <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{item.notes || "-"}</td>
+                                                    {hasVerifyResults && (
+                                                        <td className="px-4 py-3">
+                                                            <POSVerifyStatusCell
+                                                                posResult={posResult}
+                                                                isCombo={isCombo}
+                                                                isExpanded={isExpanded}
+                                                                onToggle={() => setExpandedDiff(isExpanded ? null : item.reqdtlid)}
+                                                            />
+                                                        </td>
+                                                    )}
+                                                </tr>
+                                                {isExpanded && posResult?.differences && (
+                                                    <POSVerifyDiffRow
+                                                        colSpan={totalCols}
+                                                        differences={posResult.differences}
+                                                    />
+                                                )}
+                                            </React.Fragment>
+                                        );
+                                    })
                                 )}
                             </tbody>
                         </table>
