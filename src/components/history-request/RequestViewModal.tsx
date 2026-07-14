@@ -16,6 +16,9 @@ import { exportRequestToExcel } from "./exportRequestToExcel";
 import { usePOSVerify, type POSVerifyResult } from "@/hooks/usePOSVerify";
 import useProfile from "@/hooks/useProfile";
 import { POSVerifyButton, POSVerifyStatusCell, POSVerifyDiffRow } from "@/components/pos-verify/POSVerify";
+import { useVoucherify } from "@/hooks/useVoucherify";
+import VoucherifyStatusBadge from "@/components/voucherify/VoucherifyStatusBadge";
+import VoucherifyPushModal from "@/components/voucherify/VoucherifyPushModal";
 
 const statusBadgeColor = (name: string): "success" | "warning" | "error" | "info" => {
     const n = name.toLowerCase();
@@ -116,6 +119,29 @@ export default function RequestViewModal({ isOpen, onClose, request, onSave, onD
 
     const { profile } = useProfile();
     const isAdmin = profile?.role === "admin";
+
+    const {
+        historyByReqdtlid,
+        pushing,
+        fetchHistory,
+        getLatestSuccess,
+        pushCampaign,
+        fetchTemplates,
+        searchProducts,
+    } = useVoucherify();
+
+    const [voucherifyItem, setVoucherifyItem] = useState<{
+        reqdtlid: string; reqid: string; itemname: string;
+        startdate?: string; enddate?: string; price?: number | null;
+    } | null>(null);
+
+    useEffect(() => {
+        if (!isOpen || !request) return;
+        const discountItems = (request.promotiondetail ?? []).filter(
+            (d: any) => d.itemtype === "discount" && d.reqdtlid
+        );
+        discountItems.forEach((d: any) => fetchHistory(d.reqdtlid));
+    }, [isOpen, request, fetchHistory]);
 
     const {
         results: verifyResults,
@@ -339,6 +365,11 @@ export default function RequestViewModal({ isOpen, onClose, request, onSave, onD
 
     if (!request) return null;
 
+    const voucherifyColCount = isAdmin && !isEditing ? 1 : 0;
+    const editingColCount    = isEditing ? 1 : 0;
+    const posColCount        = verifyResults.length > 0 ? 1 : 0;
+    const totalColSpan       = 9 + voucherifyColCount + editingColCount + posColCount;
+
     return (
         <>
             <Modal
@@ -487,6 +518,11 @@ export default function RequestViewModal({ isOpen, onClose, request, onSave, onD
                                         <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-400 dark:text-gray-500">Price</th>
                                         <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-400 dark:text-gray-500">Start</th>
                                         <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-400 dark:text-gray-500">End</th>
+                                        {isAdmin && !isEditing && (
+                                            <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-400 dark:text-gray-500">
+                                                Voucherify
+                                            </th>
+                                        )}
                                         {isEditing && (
                                             <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-400 dark:text-gray-500">Action</th>
                                         )}
@@ -500,7 +536,7 @@ export default function RequestViewModal({ isOpen, onClose, request, onSave, onD
                                 <tbody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
                                     {details.length === 0 ? (
                                         <tr>
-                                            <td colSpan={isEditing ? (verifyResults.length > 0 ? 11 : 10) : (verifyResults.length > 0 ? 10 : 9)} className="px-4 py-6 text-center text-gray-400 dark:text-gray-500">
+                                            <td colSpan={totalColSpan} className="px-4 py-6 text-center text-gray-400 dark:text-gray-500">
                                                 No items found.
                                             </td>
                                         </tr>
@@ -524,6 +560,27 @@ export default function RequestViewModal({ isOpen, onClose, request, onSave, onD
                                                         <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{item.price ?? "-"}</td>
                                                         <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{item.startdate || "-"}</td>
                                                         <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{item.enddate || "-"}</td>
+                                                        {isAdmin && !isEditing && (
+                                                            <td className="px-4 py-3">
+                                                                {item.itemtype === "discount" && item.reqdtlid ? (
+                                                                    <VoucherifyStatusBadge
+                                                                        latestPush={getLatestSuccess(item.reqdtlid)}
+                                                                        onPushClick={() =>
+                                                                            setVoucherifyItem({
+                                                                                reqdtlid: item.reqdtlid,
+                                                                                reqid:    request.reqid,
+                                                                                itemname: item.itemname,
+                                                                                startdate: item.startdate ?? undefined,
+                                                                                enddate:   item.enddate   ?? undefined,
+                                                                                price:     item.price     ?? null,
+                                                                            })
+                                                                        }
+                                                                    />
+                                                                ) : (
+                                                                    <span className="text-xs text-gray-300 dark:text-gray-600">—</span>
+                                                                )}
+                                                            </td>
+                                                        )}
                                                         {isEditing && (
                                                             <td className="px-4 py-3">
                                                                 <div className="flex items-center gap-2">
@@ -558,7 +615,7 @@ export default function RequestViewModal({ isOpen, onClose, request, onSave, onD
 
                                                     {isExpanded && posResult?.differences && (
                                                         <POSVerifyDiffRow
-                                                            colSpan={isEditing ? (verifyResults.length > 0 ? 11 : 10) : (verifyResults.length > 0 ? 10 : 9)}
+                                                            colSpan={totalColSpan}
                                                             differences={posResult.differences}
                                                         />
                                                     )}
@@ -627,6 +684,16 @@ export default function RequestViewModal({ isOpen, onClose, request, onSave, onD
                 onComboTotalChange={setComboTotal}
                 onConfirm={handleConfirmItem}
                 onCancel={handleCancelItem}
+            />
+
+            <VoucherifyPushModal
+                isOpen={!!voucherifyItem}
+                onClose={() => setVoucherifyItem(null)}
+                item={voucherifyItem}
+                pushing={pushing}
+                pushCampaign={pushCampaign}
+                fetchTemplates={fetchTemplates}
+                searchProducts={searchProducts}
             />
         </>
     );
