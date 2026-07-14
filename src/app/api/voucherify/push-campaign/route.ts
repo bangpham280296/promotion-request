@@ -121,9 +121,16 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: "discount_type required for Mode C" }, { status: 400 });
   }
 
-  const appId    = process.env.VOUCHERIFY_APP_ID!;
-  const appToken = process.env.VOUCHERIFY_APP_TOKEN!;
-  const baseUrl  = process.env.VOUCHERIFY_BASE_URL!;
+  const appId    = process.env.VOUCHERIFY_APP_ID;
+  const appToken = process.env.VOUCHERIFY_APP_TOKEN;
+  const baseUrl  = process.env.VOUCHERIFY_BASE_URL;
+
+  if (!appId || !appToken || !baseUrl) {
+    return NextResponse.json(
+      { error: `Missing Voucherify env vars: ${[!appId && "VOUCHERIFY_APP_ID", !appToken && "VOUCHERIFY_APP_TOKEN", !baseUrl && "VOUCHERIFY_BASE_URL"].filter(Boolean).join(", ")}` },
+      { status: 500 }
+    );
+  }
 
   const voucherifyBody = buildVoucherifyBody(body);
 

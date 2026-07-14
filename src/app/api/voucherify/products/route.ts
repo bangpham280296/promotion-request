@@ -21,9 +21,13 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const q = searchParams.get("q")?.trim() ?? "";
 
-  const appId    = process.env.VOUCHERIFY_APP_ID!;
-  const appToken = process.env.VOUCHERIFY_APP_TOKEN!;
-  const baseUrl  = process.env.VOUCHERIFY_BASE_URL!;
+  const appId    = process.env.VOUCHERIFY_APP_ID;
+  const appToken = process.env.VOUCHERIFY_APP_TOKEN;
+  const baseUrl  = process.env.VOUCHERIFY_BASE_URL;
+
+  if (!appId || !appToken || !baseUrl) {
+    return NextResponse.json({ error: "Missing Voucherify env vars" }, { status: 500 });
+  }
 
   const params = new URLSearchParams({
     limit: "20",

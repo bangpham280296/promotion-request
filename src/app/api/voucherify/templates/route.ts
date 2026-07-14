@@ -19,9 +19,13 @@ export async function GET() {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const appId    = process.env.VOUCHERIFY_APP_ID!;
-  const appToken = process.env.VOUCHERIFY_APP_TOKEN!;
-  const baseUrl  = process.env.VOUCHERIFY_BASE_URL!;
+  const appId    = process.env.VOUCHERIFY_APP_ID;
+  const appToken = process.env.VOUCHERIFY_APP_TOKEN;
+  const baseUrl  = process.env.VOUCHERIFY_BASE_URL;
+
+  if (!appId || !appToken || !baseUrl) {
+    return NextResponse.json({ error: "Missing Voucherify env vars" }, { status: 500 });
+  }
 
   const res = await fetch(`${baseUrl}templates/campaigns`, {
     headers: {
