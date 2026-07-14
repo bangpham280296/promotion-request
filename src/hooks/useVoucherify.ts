@@ -18,13 +18,17 @@ export function useVoucherify() {
   const [error, setError] = useState<string | null>(null);
 
   const fetchHistory = useCallback(async (reqdtlid: string) => {
+    setError(null);
     const { data, error: dbErr } = await supabase
       .from("voucherify_pushes")
       .select("*")
       .eq("reqdtlid", reqdtlid)
       .order("createdat", { ascending: false });
 
-    if (dbErr) return;
+    if (dbErr) {
+      setError(dbErr.message);
+      return;
+    }
     setHistoryByReqdtlid((prev) => ({
       ...prev,
       [reqdtlid]: (data as VoucherifyPush[]) ?? [],
@@ -55,6 +59,10 @@ export function useVoucherify() {
         // Refresh history sau khi push
         await fetchHistory(data.reqdtlid);
         return json as PushCampaignResponse;
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : "Push failed";
+        setError(errorMsg);
+        throw err;
       } finally {
         setPushing(false);
       }
@@ -63,21 +71,29 @@ export function useVoucherify() {
   );
 
   const fetchTemplates = useCallback(async (): Promise<VoucherifyTemplate[]> => {
-    const res = await fetch("/api/voucherify/templates");
-    if (!res.ok) return [];
-    const json = await res.json();
-    return json.templates as VoucherifyTemplate[];
+    try {
+      const res = await fetch("/api/voucherify/templates");
+      if (!res.ok) return [];
+      const json = await res.json();
+      return json.templates as VoucherifyTemplate[];
+    } catch {
+      return [];
+    }
   }, []);
 
   const searchProducts = useCallback(
     async (query: string): Promise<VoucherifyProduct[]> => {
       if (!query.trim()) return [];
-      const res = await fetch(
-        `/api/voucherify/products?q=${encodeURIComponent(query)}`
-      );
-      if (!res.ok) return [];
-      const json = await res.json();
-      return json.products as VoucherifyProduct[];
+      try {
+        const res = await fetch(
+          `/api/voucherify/products?q=${encodeURIComponent(query)}`
+        );
+        if (!res.ok) return [];
+        const json = await res.json();
+        return json.products as VoucherifyProduct[];
+      } catch {
+        return [];
+      }
     },
     []
   );
