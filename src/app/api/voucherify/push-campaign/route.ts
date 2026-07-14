@@ -1,0 +1,212 @@
+// src/app/api/voucherify/push-campaign/route.ts
+import { NextResponse } from "next/server";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/supabaseAdmin";
+import type { PushCampaignInput, PushCampaignResponse } from "@/types/voucherify";
+
+function buildVoucherifyBody(req: PushCampaignInput): Record<string, unknown> {
+  // THE ONE RULE: merge campaign + voucher metadata into 1 single object
+  const metadata: Record<string, unknown> = {
+    // campaign schema fields
+    camp_name_en:    req.campaign_name,
+    camp_name_vi:    req.campaign_name,
+    camp_summary_en: req.campaign_name,
+    camp_summary_vi: req.campaign_name,
+    // voucher schema fields
+    title_en:              req.campaign_name,
+    title_vi:              req.campaign_name,
+    short_description_en:  req.campaign_name,
+    short_description_vi:  req.campaign_name,
+    discount_or_egc:       req.discount_or_egc,
+    campaign_type_pos:     req.campaign_type_pos,
+    campaign_type_nonpos:  req.campaign_type_nonpos,
+    display_priority:      req.display_priority,
+  };
+
+  const base: Record<string, unknown> = {
+    name: req.campaign_name,
+    use_voucher_metadata_schema: true,
+    metadata,
+    ...(req.start_date      && { start_date:       req.start_date }),
+    ...(req.expiration_date && { expiration_date:  req.expiration_date }),
+    ...(req.vouchers_count  && { vouchers_count:   req.vouchers_count }),
+  };
+
+  const codeConfig = req.code_pattern
+    ? { code_config: { pattern: req.code_pattern } }
+    : {};
+
+  if (req.mode === "A") {
+    return { ...base, voucher: { ...codeConfig } };
+  }
+
+  if (req.mode === "B") {
+    return {
+      ...base,
+      campaign_type: "DISCOUNT_COUPONS",
+      type: "STATIC",
+      voucher: {
+        type: "DISCOUNT_VOUCHER",
+        discount: {
+          type: "UNIT",
+          unit_off: 1,
+          unit_type: req.product_id,
+          effect: req.unit_effect ?? "ADD_MISSING_ITEMS",
+          product: { id: req.product_id },
+        },
+        ...codeConfig,
+      },
+    };
+  }
+
+  // Mode C
+  const discountC =
+    req.discount_type === "PERCENT"
+      ? {
+          type: "PERCENT",
+          percent_off: req.discount_percent,
+          effect: req.amount_effect ?? "APPLY_TO_ORDER",
+          ...(req.max_discount_cap && {
+            amount_limit: Math.round(req.max_discount_cap * 100),
+          }),
+        }
+      : {
+          type: "AMOUNT",
+          amount_off: Math.round((req.discount_value_vnd ?? 0) * 100),
+          effect: req.amount_effect ?? "APPLY_TO_ORDER",
+        };
+
+  return {
+    ...base,
+    campaign_type: "DISCOUNT_COUPONS",
+    type: "STATIC",
+    voucher: {
+      type: "DISCOUNT_VOUCHER",
+      discount: discountC,
+      ...codeConfig,
+    },
+  };
+}
+
+export async function POST(request: Request): Promise<NextResponse> {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Check admin role via employees table
+  const { data: emp } = await supabase
+    .from("employees")
+    .select("user_id, role")
+    .eq("user_id", user.id)
+    .single();
+  if (!emp || emp.role !== "admin") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const body: PushCampaignInput = await request.json();
+
+  // Validate required fields
+  if (!body.reqdtlid || !body.reqid || !body.mode || !body.campaign_name) {
+    return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+  }
+  if (body.mode === "A" && !body.template_id) {
+    return NextResponse.json({ error: "template_id required for Mode A" }, { status: 400 });
+  }
+  if (body.mode === "B" && !body.product_id) {
+    return NextResponse.json({ error: "product_id required for Mode B" }, { status: 400 });
+  }
+  if (body.mode === "C" && !body.discount_type) {
+    return NextResponse.json({ error: "discount_type required for Mode C" }, { status: 400 });
+  }
+
+  const appId    = process.env.VOUCHERIFY_APP_ID!;
+  const appToken = process.env.VOUCHERIFY_APP_TOKEN!;
+  const baseUrl  = process.env.VOUCHERIFY_BASE_URL!;
+
+  const voucherifyBody = buildVoucherifyBody(body);
+
+  // Select endpoint by mode
+  const endpoint =
+    body.mode === "A"
+      ? `${baseUrl}/v1/templates/campaigns/${body.template_id}/campaign-setup`
+      : `${baseUrl}/v1/campaigns`;
+
+  // INSERT pending record first to get push_id
+  const { data: pushRecord, error: insertError } = await supabaseAdmin
+    .from("voucherify_pushes")
+    .insert({
+      reqdtlid:      body.reqdtlid,
+      reqid:         body.reqid,
+      pushed_by:     user.id,
+      mode:          body.mode,
+      template_id:   body.template_id ?? null,
+      campaign_name: body.campaign_name,
+      vouchers_count: body.vouchers_count ?? null,
+      code_pattern:   body.code_pattern ?? null,
+      product_id:     body.product_id ?? null,
+      product_name:   body.product_name ?? null,
+      discount_type:       body.discount_type ?? null,
+      discount_value_vnd:  body.discount_value_vnd ?? null,
+      discount_percent:    body.discount_percent ?? null,
+      max_discount_cap:    body.max_discount_cap ?? null,
+      push_status: "pending",
+    })
+    .select("id")
+    .single();
+
+  if (insertError || !pushRecord) {
+    return NextResponse.json({ error: "Failed to create push record" }, { status: 500 });
+  }
+
+  const pushId = pushRecord.id as string;
+
+  // Call Voucherify API
+  const vRes = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "X-App-Id":     appId,
+      "X-App-Token":  appToken,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(voucherifyBody),
+  });
+
+  const vJson = await vRes.json();
+
+  if (!vRes.ok) {
+    // Update push record with failed status
+    await supabaseAdmin
+      .from("voucherify_pushes")
+      .update({
+        push_status: "failed",
+        push_error:  JSON.stringify(vJson),
+      })
+      .eq("id", pushId);
+
+    return NextResponse.json({ error: vJson }, { status: vRes.status });
+  }
+
+  // Mode A response: campaign.id; Mode B/C: id
+  const campaignId: string =
+    body.mode === "A" ? vJson.campaign?.id : vJson.id;
+
+  // Update push record with success
+  await supabaseAdmin
+    .from("voucherify_pushes")
+    .update({
+      voucherify_campaign_id: campaignId,
+      push_status: "success",
+      pushed_at:   new Date().toISOString(),
+    })
+    .eq("id", pushId);
+
+  const result: PushCampaignResponse = {
+    push_id:     pushId,
+    campaign_id: campaignId,
+    push_status: "success",
+  };
+
+  return NextResponse.json(result);
+}
