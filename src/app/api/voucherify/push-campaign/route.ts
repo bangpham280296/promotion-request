@@ -162,51 +162,79 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   const pushId = pushRecord.id as string;
 
-  // Call Voucherify API
-  const vRes = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      "X-App-Id":     appId,
-      "X-App-Token":  appToken,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(voucherifyBody),
-  });
+  try {
+    // Call Voucherify API
+    const vRes = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "X-App-Id":     appId,
+        "X-App-Token":  appToken,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(voucherifyBody),
+    });
 
-  const vJson = await vRes.json();
+    const vJson = await vRes.json();
 
-  if (!vRes.ok) {
-    // Update push record with failed status
+    if (!vRes.ok) {
+      // Update push record with failed status
+      await supabaseAdmin
+        .from("voucherify_pushes")
+        .update({
+          push_status: "failed",
+          push_error:  JSON.stringify(vJson),
+        })
+        .eq("id", pushId);
+
+      return NextResponse.json({ error: vJson }, { status: vRes.status });
+    }
+
+    // Mode A response: campaign.id; Mode B/C: id
+    const campaignId: string =
+      body.mode === "A" ? vJson.campaign?.id : vJson.id;
+
+    // Null-guard: if campaignId is missing, treat as failed
+    if (!campaignId) {
+      await supabaseAdmin
+        .from("voucherify_pushes")
+        .update({
+          push_status: "failed",
+          push_error: "Campaign ID not found in response",
+        })
+        .eq("id", pushId);
+
+      return NextResponse.json({ error: "Campaign ID not found in response" }, { status: 500 });
+    }
+
+    // Update push record with success
+    const { error: updateError } = await supabaseAdmin
+      .from("voucherify_pushes")
+      .update({
+        voucherify_campaign_id: campaignId,
+        push_status: "success",
+        pushed_at:   new Date().toISOString(),
+      })
+      .eq("id", pushId);
+
+    if (updateError) console.error("Failed to update push record:", updateError);
+
+    const result: PushCampaignResponse = {
+      push_id:     pushId,
+      campaign_id: campaignId,
+      push_status: "success",
+    };
+
+    return NextResponse.json(result);
+  } catch (err) {
+    // Update the push record to failed
     await supabaseAdmin
       .from("voucherify_pushes")
       .update({
         push_status: "failed",
-        push_error:  JSON.stringify(vJson),
+        push_error: err instanceof Error ? err.message : String(err),
       })
       .eq("id", pushId);
 
-    return NextResponse.json({ error: vJson }, { status: vRes.status });
+    return NextResponse.json({ error: "Network or parse error calling Voucherify" }, { status: 502 });
   }
-
-  // Mode A response: campaign.id; Mode B/C: id
-  const campaignId: string =
-    body.mode === "A" ? vJson.campaign?.id : vJson.id;
-
-  // Update push record with success
-  await supabaseAdmin
-    .from("voucherify_pushes")
-    .update({
-      voucherify_campaign_id: campaignId,
-      push_status: "success",
-      pushed_at:   new Date().toISOString(),
-    })
-    .eq("id", pushId);
-
-  const result: PushCampaignResponse = {
-    push_id:     pushId,
-    campaign_id: campaignId,
-    push_status: "success",
-  };
-
-  return NextResponse.json(result);
 }
