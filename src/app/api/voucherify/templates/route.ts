@@ -9,6 +9,16 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Verify admin role
+  const { data: emp } = await supabase
+    .from("employees")
+    .select("role")
+    .eq("user_id", user.id)
+    .single();
+  if (!emp || emp.role !== "admin") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const appId    = process.env.VOUCHERIFY_APP_ID!;
   const appToken = process.env.VOUCHERIFY_APP_TOKEN!;
   const baseUrl  = process.env.VOUCHERIFY_BASE_URL!;

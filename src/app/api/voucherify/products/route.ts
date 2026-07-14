@@ -8,6 +8,16 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  // Verify admin role
+  const { data: emp } = await supabase
+    .from("employees")
+    .select("role")
+    .eq("user_id", user.id)
+    .single();
+  if (!emp || emp.role !== "admin") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
   const { searchParams } = new URL(request.url);
   const q = searchParams.get("q")?.trim() ?? "";
 

@@ -164,9 +164,15 @@ export default function VoucherifyPushModal({
       return;
     }
 
-    // Xử lý date: parse "dd/mm/yyyy" → ISO UTC, omit nếu blank
-    const parseDate = (d: string) => {
+    // Xử lý date: parse "Y-m-d" (DatePicker) hoặc "dd/mm/yyyy" (manual) → ISO UTC, omit nếu blank
+    const parseDate = (d: string): string | undefined => {
       if (!d) return undefined;
+      // Y-m-d format (from DatePicker: "2026-07-14")
+      if (/^\d{4}-\d{2}-\d{2}$/.test(d)) {
+        const dt = new Date(`${d}T00:00:00.000Z`);
+        if (!isNaN(dt.getTime())) return dt.toISOString();
+      }
+      // dd/mm/yyyy format (manual input fallback)
       const parts = d.split("/");
       if (parts.length === 3) {
         const [dd, mm, yyyy] = parts;
