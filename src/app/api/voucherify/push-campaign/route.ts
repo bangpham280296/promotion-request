@@ -130,8 +130,8 @@ export async function POST(request: Request): Promise<NextResponse> {
   // Select endpoint by mode
   const endpoint =
     body.mode === "A"
-      ? `${baseUrl}/v1/templates/campaigns/${body.template_id}/campaign-setup`
-      : `${baseUrl}/v1/campaigns`;
+      ? `${baseUrl}templates/campaigns/${body.template_id}/campaign-setup`
+      : `${baseUrl}campaigns`;
 
   // INSERT pending record first to get push_id
   const { data: pushRecord, error: insertError } = await supabaseAdmin

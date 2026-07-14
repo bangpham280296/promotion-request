@@ -15,6 +15,9 @@ import {
     POSVerifyDiffRow,
     type PosFilter,
 } from "@/components/pos-verify/POSVerify";
+import { useVoucherify } from "@/hooks/useVoucherify";
+import VoucherifyStatusBadge from "@/components/voucherify/VoucherifyStatusBadge";
+import VoucherifyPushModal from "@/components/voucherify/VoucherifyPushModal";
 
 function DescriptionCell({ value }: { value: string }) {
     if (!value || !value.includes("|")) return <span>{value ?? "-"}</span>;
@@ -55,6 +58,20 @@ export default function AdminRequestViewModal({ isOpen, onClose, request, onStat
     const [details, setDetails] = useState<any[]>([]);
     const [expandedDiff, setExpandedDiff] = useState<number | null>(null);
     const [posFilter, setPosFilter] = useState<PosFilter>(null);
+
+    const {
+        pushing,
+        fetchHistory,
+        getLatestSuccess,
+        pushCampaign,
+        fetchTemplates,
+        searchProducts,
+    } = useVoucherify();
+
+    const [voucherifyItem, setVoucherifyItem] = useState<{
+        reqdtlid: number; reqid: number; itemname: string;
+        startdate?: string; enddate?: string; price?: number | null;
+    } | null>(null);
 
     const {
         results: verifyResults,
@@ -101,7 +118,12 @@ export default function AdminRequestViewModal({ isOpen, onClose, request, onStat
             .from("promotiondetail")
             .select("reqdtlid, itemcode, itemname, description, itemtype, discount, price, startdate, enddate, servicetype, notes")
             .eq("reqid", request.reqid)
-            .then(({ data }) => setDetails(data ?? []));
+            .then(({ data }) => {
+                const rows = data ?? [];
+                setDetails(rows);
+                rows.filter((d) => d.itemtype === "discount" && d.reqdtlid)
+                    .forEach((d) => fetchHistory(d.reqdtlid));
+            });
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isOpen, request?.reqid]);
 
@@ -161,7 +183,7 @@ export default function AdminRequestViewModal({ isOpen, onClose, request, onStat
     const currentStatus = statusOptions.find((s) => s.id === localSttId);
 
     const hasVerifyResults = verifyResults.length > 0;
-    const totalCols = hasVerifyResults ? 11 : 10;
+    const totalCols = hasVerifyResults ? 12 : 11;
 
     const filteredDetails = details.filter((item) => {
         if (!posFilter || !hasVerifyResults) return true;
@@ -173,6 +195,7 @@ export default function AdminRequestViewModal({ isOpen, onClose, request, onStat
     if (!request) return null;
 
     return (
+        <>
         <Modal isOpen={isOpen} onClose={onClose} className="max-w-[1500px] w-[95vw] max-h-[90vh] flex flex-col p-0">
 
             {/* Fixed Header */}
@@ -270,6 +293,7 @@ export default function AdminRequestViewModal({ isOpen, onClose, request, onStat
                                     {["No.", "Item Code", "Item Name", "Description", "Service Type", "Discount", "Price", "Start", "End", "Notes"].map((h) => (
                                         <th key={h} className="px-4 py-2.5 text-left text-xs font-medium text-gray-400 dark:text-gray-500 whitespace-nowrap">{h}</th>
                                     ))}
+                                    <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-400 dark:text-gray-500 whitespace-nowrap">Voucherify</th>
                                     {hasVerifyResults && (
                                         <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-400 dark:text-gray-500 whitespace-nowrap">POS Status</th>
                                     )}
@@ -301,6 +325,25 @@ export default function AdminRequestViewModal({ isOpen, onClose, request, onStat
                                                     <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">{item.startdate || "-"}</td>
                                                     <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">{item.enddate || "-"}</td>
                                                     <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{item.notes || "-"}</td>
+                                                    <td className="px-4 py-3">
+                                                        {item.itemtype === "discount" && item.reqdtlid ? (
+                                                            <VoucherifyStatusBadge
+                                                                latestPush={getLatestSuccess(item.reqdtlid)}
+                                                                onPushClick={() =>
+                                                                    setVoucherifyItem({
+                                                                        reqdtlid:  item.reqdtlid,
+                                                                        reqid:     request.reqid,
+                                                                        itemname:  item.itemname,
+                                                                        startdate: item.startdate ?? undefined,
+                                                                        enddate:   item.enddate   ?? undefined,
+                                                                        price:     item.price     ?? null,
+                                                                    })
+                                                                }
+                                                            />
+                                                        ) : (
+                                                            <span className="text-xs text-gray-300 dark:text-gray-600">—</span>
+                                                        )}
+                                                    </td>
                                                     {hasVerifyResults && (
                                                         <td className="px-4 py-3">
                                                             <POSVerifyStatusCell
@@ -348,5 +391,16 @@ export default function AdminRequestViewModal({ isOpen, onClose, request, onStat
                 </button>
             </div>
         </Modal>
+
+        <VoucherifyPushModal
+            isOpen={!!voucherifyItem}
+            onClose={() => setVoucherifyItem(null)}
+            item={voucherifyItem}
+            pushing={pushing}
+            pushCampaign={pushCampaign}
+            fetchTemplates={fetchTemplates}
+            searchProducts={searchProducts}
+        />
+        </>
     );
 }

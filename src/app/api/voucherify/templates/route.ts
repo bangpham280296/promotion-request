@@ -23,7 +23,7 @@ export async function GET() {
   const appToken = process.env.VOUCHERIFY_APP_TOKEN!;
   const baseUrl  = process.env.VOUCHERIFY_BASE_URL!;
 
-  const res = await fetch(`${baseUrl}/v1/templates/campaigns`, {
+  const res = await fetch(`${baseUrl}templates/campaigns`, {
     headers: {
       "X-App-Id":    appId,
       "X-App-Token": appToken,

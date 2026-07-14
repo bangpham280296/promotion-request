@@ -220,7 +220,7 @@ export default function VoucherifyPushModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center px-4">
+    <div className="fixed inset-0 z-[999999] flex items-center justify-center px-4">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className="relative bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-lg">
 

@@ -31,7 +31,7 @@ export async function GET(request: Request) {
     "filters[name][conditions][$contains][0]": q,
   });
 
-  const res = await fetch(`${baseUrl}/v1/products?${params}`, {
+  const res = await fetch(`${baseUrl}products?${params}`, {
     headers: {
       "X-App-Id":    appId,
       "X-App-Token": appToken,

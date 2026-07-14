@@ -55,7 +55,12 @@ export function useVoucherify() {
           body: JSON.stringify(data),
         });
         const json = await res.json();
-        if (!res.ok) throw new Error(json.error ?? "Push failed");
+        if (!res.ok) {
+          const errMsg = typeof json.error === "string"
+            ? json.error
+            : (json.error?.message ?? json.message ?? "Push failed");
+          throw new Error(errMsg);
+        }
         // Refresh history sau khi push
         await fetchHistory(data.reqdtlid);
         return json as PushCampaignResponse;
