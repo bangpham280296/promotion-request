@@ -131,7 +131,7 @@ export default function RequestViewModal({ isOpen, onClose, request, onSave, onD
     } = useVoucherify();
 
     const [voucherifyItem, setVoucherifyItem] = useState<{
-        reqdtlid: string; reqid: string; itemname: string;
+        reqdtlid: number; reqid: number; itemname: string;
         startdate?: string; enddate?: string; price?: number | null;
     } | null>(null);
 

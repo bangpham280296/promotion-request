@@ -15,9 +15,9 @@ export type AmountEffect =
   | "APPLY_TO_ITEMS_BY_QUANTITY";
 
 export interface VoucherifyPush {
-  id: string;
-  reqdtlid: string;
-  reqid: string;
+  id: number;
+  reqdtlid: number;
+  reqid: number;
   pushed_by: string | null;
   mode: VoucherifyMode;
   template_id: string | null;
@@ -38,8 +38,8 @@ export interface VoucherifyPush {
 }
 
 export interface PushCampaignInput {
-  reqdtlid: string;
-  reqid: string;
+  reqdtlid: number;
+  reqid: number;
   mode: VoucherifyMode;
   // Common campaign fields
   campaign_name: string;
@@ -67,7 +67,7 @@ export interface PushCampaignInput {
 }
 
 export interface PushCampaignResponse {
-  push_id: string;
+  push_id: number;
   campaign_id: string;
   push_status: PushStatus;
 }

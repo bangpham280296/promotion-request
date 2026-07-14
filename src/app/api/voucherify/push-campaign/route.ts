@@ -160,7 +160,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: "Failed to create push record" }, { status: 500 });
   }
 
-  const pushId = pushRecord.id as string;
+  const pushId = pushRecord.id as number;
 
   try {
     // Call Voucherify API

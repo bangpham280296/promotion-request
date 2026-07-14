@@ -12,12 +12,12 @@ import type {
 
 export function useVoucherify() {
   const [historyByReqdtlid, setHistoryByReqdtlid] = useState<
-    Record<string, VoucherifyPush[]>
+    Record<number, VoucherifyPush[]>
   >({});
   const [pushing, setPushing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchHistory = useCallback(async (reqdtlid: string) => {
+  const fetchHistory = useCallback(async (reqdtlid: number) => {
     setError(null);
     const { data, error: dbErr } = await supabase
       .from("voucherify_pushes")
@@ -37,7 +37,7 @@ export function useVoucherify() {
 
   // Lấy push thành công mới nhất cho 1 reqdtlid
   const getLatestSuccess = useCallback(
-    (reqdtlid: string): VoucherifyPush | null => {
+    (reqdtlid: number): VoucherifyPush | null => {
       const list = historyByReqdtlid[reqdtlid] ?? [];
       return list.find((p) => p.push_status === "success") ?? null;
     },

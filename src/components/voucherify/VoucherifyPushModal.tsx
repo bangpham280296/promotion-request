@@ -19,8 +19,8 @@ import type {
 } from "@/types/voucherify";
 
 interface PushItem {
-  reqdtlid: string;
-  reqid:    string;
+  reqdtlid: number;
+  reqid:    number;
   itemname: string;
   startdate?: string;
   enddate?:   string;
