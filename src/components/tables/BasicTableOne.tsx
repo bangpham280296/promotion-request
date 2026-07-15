@@ -200,11 +200,15 @@ export default function BasicTableOne() {
 
   // Inline update status + refresh current page
   const handleStatusChange = async (reqid: number, sttId: number) => {
-    const { error } = await supabase
-      .from("requests")
-      .update({ stt: sttId })
-      .eq("reqid", reqid);
-    if (error) throw error;
+    const res = await fetch("/api/requests/status", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ reqid, sttId }),
+    });
+    if (!res.ok) {
+      const { error } = await res.json();
+      throw new Error(error ?? "Failed to update status");
+    }
     fetchRequests({ search, statusFilter, tab: activeTab, deptId: deptFilter, page: currentPage, pageSize, currentUserId, currentUserDeptId });
   };
 

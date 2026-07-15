@@ -128,18 +128,6 @@ export default function useRequest() {
     await fetchRequests();
   };
 
-  // UPDATE STATUS — admin only (sttId: 1=pending, 2=approved, 3=rejected)
-  const updateRequestStatus = async (reqid: number, sttId: number) => {
-    const { error } = await supabase
-      .from("requests")
-      .update({ stt: sttId })
-      .eq("reqid", reqid);
-
-    if (error) throw error;
-
-    await fetchRequests();
-  };
-
   // DELETE
   const removeRequest = async (reqid: number) => {
     const { error } = await supabase
@@ -159,7 +147,6 @@ export default function useRequest() {
     fetchRequests,
     addRequest,
     editRequest,
-    updateRequestStatus,
     removeRequest,
   };
 }
