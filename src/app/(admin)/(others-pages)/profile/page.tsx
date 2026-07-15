@@ -3,6 +3,8 @@ import UserInfoCard from "@/components/user-profile/UserInfoCard";
 import UserMetaCard from "@/components/user-profile/UserMetaCard";
 import { Metadata } from "next";
 import React from "react";
+import { redirect } from "next/navigation";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = {
   title: "Profile | Information and Settings",
@@ -13,7 +15,11 @@ export const metadata: Metadata = {
     "This is the profile page where users can view and edit their personal information and settings.",
 };
 
-export default function Profile() {
+export default async function Profile() {
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) redirect("/signin");
+
   return (
     <div>
       <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03] lg:p-6">
