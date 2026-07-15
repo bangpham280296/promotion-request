@@ -1,7 +1,7 @@
 // src/app/api/voucherify/push-campaign/route.ts
 import { NextResponse } from "next/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/supabaseAdmin";
+import { requireAdmin } from "@/lib/auth/apiGuards";
 import type { PushCampaignInput, PushCampaignResponse } from "@/types/voucherify";
 
 function buildVoucherifyBody(req: PushCampaignInput): Record<string, unknown> {
@@ -88,22 +88,10 @@ function buildVoucherifyBody(req: PushCampaignInput): Record<string, unknown> {
   };
 }
 
-export async function POST(request: Request): Promise<NextResponse> {
-  const supabase = await createSupabaseServerClient();
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  // Check admin role via employees table
-  const { data: emp } = await supabase
-    .from("employees")
-    .select("user_id, role")
-    .eq("user_id", user.id)
-    .single();
-  if (!emp || emp.role !== "admin") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+export async function POST(request: Request) {
+  const auth = await requireAdmin();
+  if ("error" in auth) return auth.error;
+  const { user } = auth;
 
   const body: PushCampaignInput = await request.json();
 
