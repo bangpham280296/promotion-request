@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/supabaseAdmin";
+import { requireAdmin } from "@/lib/auth/apiGuards";
 
 export async function GET() {
+    const auth = await requireAdmin();
+    if ("error" in auth) return auth.error;
+
     const [authResult, empResult] = await Promise.all([
         supabaseAdmin.auth.admin.listUsers({ perPage: 1000 }),
         supabaseAdmin.from("employees").select("user_id, fullname"),

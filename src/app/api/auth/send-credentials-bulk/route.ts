@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/supabaseAdmin";
 import { transporter } from "@/lib/mailer";
+import { requireAdmin } from "@/lib/auth/apiGuards";
 
 function generateTempPassword(): string {
     const chars = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
@@ -13,6 +14,9 @@ function generateTempPassword(): string {
 
 export async function POST(req: NextRequest) {
     try {
+        const auth = await requireAdmin();
+        if ("error" in auth) return auth.error;
+
         const body = await req.json();
         const selectedEmails: string[] | undefined = body.emails;
 

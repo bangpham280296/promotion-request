@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSqlPool } from "@/lib/sqlserver";
 import { supabaseAdmin } from "@/lib/supabase/supabaseAdmin";
+import { requireAdmin } from "@/lib/auth/apiGuards";
 
 export type SqlItem = {
   itemcode: string;
@@ -36,6 +37,9 @@ async function getAllSupabaseItemcodes(): Promise<Set<string>> {
 }
 
 export async function GET() {
+  const auth = await requireAdmin();
+  if ("error" in auth) return auth.error;
+
   const query = process.env.SQL_ITEMS_QUERY;
   if (!query) {
     return NextResponse.json(

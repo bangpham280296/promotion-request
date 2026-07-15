@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/supabaseAdmin";
 import type { SqlItem } from "../sync-preview/route";
+import { requireAdmin } from "@/lib/auth/apiGuards";
 
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requireAdmin();
+    if ("error" in auth) return auth.error;
+
     const { items }: { items: SqlItem[] } = await req.json();
 
     if (!Array.isArray(items) || items.length === 0) {
