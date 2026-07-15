@@ -1,8 +1,12 @@
-"use client";
-
 import ComboTable from "@/components/(product)/combo/ComboTable";
+import { redirect } from "next/navigation";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export default function ComboPage() {
+export default async function ComboPage() {
+    const supabase = await createSupabaseServerClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) redirect("/signin");
+
     return (
         <div className="p-4 mx-auto max-w-screen-2xl md:p-6">
             <div className="mb-6">
