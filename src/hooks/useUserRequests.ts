@@ -17,7 +17,7 @@ export function useUserRequests(userId: string | null) {
       .from("requests")
       .select(`
       *,
-      promotiondetail(*),
+      promotiondetail(*, discount_metadata(metadata)),
       department(deptname),
       employees:employees!request_requester_fkey (fullname),
       stt:status(*)
@@ -80,14 +80,32 @@ export function useUserRequests(userId: string | null) {
         .update(mapDetail(d))
         .eq("reqdtlid", d.reqdtlid);
       if (error) throw error;
+
+      if (d.itemtype === "discount" && d.metadata) {
+        const { error: metaError } = await supabase
+          .from("discount_metadata")
+          .upsert({ reqdtlid: d.reqdtlid, metadata: d.metadata, updateat: new Date().toISOString() });
+        if (metaError) throw metaError;
+      }
     }
 
     // 3. INSERT các item mới (không có reqdtlid)
     if (toInsert.length > 0) {
-      const { error } = await supabase
+      const { data: inserted, error } = await supabase
         .from("promotiondetail")
-        .insert(toInsert.map((d) => ({ reqid, ...mapDetail(d) })));
+        .insert(toInsert.map((d) => ({ reqid, ...mapDetail(d) })))
+        .select("reqdtlid");
       if (error) throw error;
+
+      const metaRows = toInsert
+        .map((d, i) => ({ d, reqdtlid: inserted?.[i]?.reqdtlid }))
+        .filter(({ d, reqdtlid }) => d.itemtype === "discount" && d.metadata && reqdtlid)
+        .map(({ d, reqdtlid }) => ({ reqdtlid, metadata: d.metadata }));
+
+      if (metaRows.length > 0) {
+        const { error: metaError } = await supabase.from("discount_metadata").insert(metaRows);
+        if (metaError) throw metaError;
+      }
     }
 
     // 4. DELETE các item bị xóa khỏi danh sách
