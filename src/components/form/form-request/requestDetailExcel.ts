@@ -1,6 +1,7 @@
 import * as XLSX from "xlsx";
 import { toast } from "sonner";
 import { toDBDescription } from "./ComboDescriptionTable";
+import type { DiscountMetadata } from "@/types/discount-metadata";
 
 export type Row = {
     no: number;
@@ -15,6 +16,7 @@ export type Row = {
     enddate: string;
     notes: string;
     itemtype: string;           // 'item' | 'combo' | 'discount'
+    metadata?: DiscountMetadata | null; // Discount only — Voucherify campaign metadata
 };
 
 export function parseDateCell(val: unknown): string {

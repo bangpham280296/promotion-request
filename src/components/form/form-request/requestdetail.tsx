@@ -32,6 +32,7 @@ const emptyForm: FormState = {
     startdate: "",
     enddate: "",
     notes: "",
+    metadata: null,
 };
 
 function DescriptionCell({ value }: { value: string }) {
@@ -105,6 +106,7 @@ export default function RequestDetailTable({ value, onChange }: DetailProps) {
             startdate: row.startdate,
             enddate: row.enddate,
             notes: row.notes,
+            metadata: row.metadata ?? null,
         });
         setEditingIndex(index);
         const typeMap: Record<string, string> = { item: "Item", combo: "Combo", discount: "Discount" };
@@ -125,6 +127,7 @@ export default function RequestDetailTable({ value, onChange }: DetailProps) {
         enddate: f.enddate,
         notes: f.notes,
         itemtype: selectedType.toLowerCase(),
+        metadata: selectedType === "Discount" ? (f.metadata ?? null) : null,
     });
 
     const handleConfirm = () => {
