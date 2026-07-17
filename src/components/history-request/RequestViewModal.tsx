@@ -75,6 +75,7 @@ const emptyForm: FormState = {
     startdate: "",
     enddate: "",
     notes: "",
+    metadata: null,
 };
 
 const formatVNDateTime = (dateStr: string | null | undefined) => {
@@ -160,6 +161,7 @@ export default function RequestViewModal({ isOpen, onClose, request, onSave, onD
             startdate: item.startdate ?? "",
             enddate: item.enddate ?? "",
             notes: item.notes ?? "",
+            metadata: item.discount_metadata?.metadata ?? null,
         }));
 
     useEffect(() => {
@@ -212,6 +214,7 @@ export default function RequestViewModal({ isOpen, onClose, request, onSave, onD
                 enddate: d.enddate || null,
                 servicetype: d.servicetype || null,
                 notes: d.notes || null,
+                metadata: d.itemtype === "discount" ? (d.metadata ?? null) : null,
             }));
             await onSave(request.reqid, editData, mappedDetails, originalDetails);
             if (newSttId === 2 && onDeactivate) {
@@ -248,6 +251,7 @@ export default function RequestViewModal({ isOpen, onClose, request, onSave, onD
             startdate: item.startdate,
             enddate: item.enddate,
             notes: item.notes,
+            metadata: item.metadata ?? null,
         });
         setEditingItemIndex(index);
         const typeMap: Record<string, string> = { item: "Item", combo: "Combo", discount: "Discount" };
@@ -267,6 +271,7 @@ export default function RequestViewModal({ isOpen, onClose, request, onSave, onD
         startdate: f.startdate,
         enddate: f.enddate,
         notes: f.notes,
+        metadata: selectedType === "Discount" ? (f.metadata ?? null) : null,
     });
 
     const handleConfirmItem = () => {

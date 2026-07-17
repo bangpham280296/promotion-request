@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Button from "@/components/ui/button/Button";
 import Input from "@/components/form/input/InputField";
 import Label from "@/components/form/Label";
@@ -10,6 +10,8 @@ import DatePicker from "@/components/form/date-picker";
 import { Modal } from "@/components/ui/modal";
 import Radio from "@/components/form/input/Radio";
 import ComboDescriptionTable from "./ComboDescriptionTable";
+import DiscountMetadataModal from "@/components/voucherify/DiscountMetadataModal";
+import type { DiscountMetadata } from "@/types/discount-metadata";
 import { useServiceTypes } from "@/hooks/useServiceTypes";
 
 export type FormState = {
@@ -22,6 +24,7 @@ export type FormState = {
     startdate: string;
     enddate: string;
     notes: string;
+    metadata?: DiscountMetadata | null;
 };
 
 type Props = {
@@ -55,8 +58,10 @@ export default function EditItemModal({
     onCancel,
 }: Props) {
     const serviceTypeOptions = useServiceTypes();
+    const [metadataModalOpen, setMetadataModalOpen] = useState(false);
 
     return (
+        <>
         <Modal isOpen={isOpen} onClose={onCancel} className="max-w-[1100px] max-h-[90vh] flex flex-col p-0">
             {/* Fixed Header */}
             <div className="flex-shrink-0 px-6 lg:px-8 pt-14 pb-4 border-b border-gray-100 dark:border-white/[0.07]">
@@ -125,6 +130,17 @@ export default function EditItemModal({
                                     onComboTotalChange(total);
                                 }}
                             />
+                        ) : selectedType === "Discount" ? (
+                            <div className="flex items-center gap-3">
+                                <Button size="sm" variant="outline" onClick={() => setMetadataModalOpen(true)}>
+                                    {form.metadata ? "Edit Voucherify Metadata" : "Add Voucherify Metadata"}
+                                </Button>
+                                {form.metadata?.title_en && (
+                                    <span className="text-sm text-gray-500 dark:text-gray-400 truncate">
+                                        {form.metadata.title_en}
+                                    </span>
+                                )}
+                            </div>
                         ) : (
                             <Input
                                 type="text"
@@ -212,5 +228,13 @@ export default function EditItemModal({
                 </Button>
             </div>
         </Modal>
+
+        <DiscountMetadataModal
+            isOpen={metadataModalOpen}
+            initialValue={form.metadata ?? null}
+            onSave={(metadata) => onFormChange("metadata", metadata)}
+            onClose={() => setMetadataModalOpen(false)}
+        />
+        </>
     );
 }
