@@ -72,6 +72,7 @@ export default function RequestForm() {
                 servicetype: d.servicetype || null,
                 notes: d.notes || null,
                 itemtype: d.itemtype || null,
+                metadata: d.itemtype === "discount" && d.metadata ? d.metadata : undefined,
             }));
 
             const mappedReq = {
