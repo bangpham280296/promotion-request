@@ -4,6 +4,8 @@
 --          for Discount-type rows) inserts inside a single PostgreSQL
 --          transaction so either ALL succeed (COMMIT) or NONE are
 --          saved (ROLLBACK).
+-- ORDERING: Run discount_metadata.sql BEFORE this file — this
+--          function body references the "discount_metadata" table.
 -- ============================================================
 
 CREATE OR REPLACE FUNCTION insert_request_with_details(

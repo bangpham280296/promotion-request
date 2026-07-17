@@ -230,6 +230,7 @@ export default function EditItemModal({
         </Modal>
 
         <DiscountMetadataModal
+            key={`discount-metadata-${resetKey}-${editingIndex ?? "new"}`}
             isOpen={metadataModalOpen}
             initialValue={form.metadata ?? null}
             onSave={(metadata) => onFormChange("metadata", metadata)}
