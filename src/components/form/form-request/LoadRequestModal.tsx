@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase/supabaseClient";
 import Button from "@/components/ui/button/Button";
 import { type Row } from "./requestDetailExcel";
 import { useAuthContext } from "@/context/AuthContext";
+import type { DiscountMetadata } from "@/types/discount-metadata";
 
 type RequestMeta = {
     reqid: number;
@@ -27,6 +28,7 @@ type DetailItem = {
     enddate: string | null;
     servicetype: string | null;
     notes: string | null;
+    discount_metadata: { metadata: DiscountMetadata } | null;
 };
 
 type DeptOption = { id: number; deptname: string };
@@ -63,6 +65,7 @@ function mapToRow(dtl: DetailItem, no: number): Row {
         enddate: dtl.enddate ?? "",
         notes: dtl.notes ?? "",
         itemtype: dtl.itemtype ?? "item",
+        metadata: dtl.discount_metadata?.metadata ?? null,
     };
 }
 
@@ -184,10 +187,10 @@ export default function LoadRequestModal({ isOpen, existingRows, onAppend, onRep
         setSelectedDetails([]);
         supabase
             .from("promotiondetail")
-            .select("reqdtlid, itemcode, itemname, description, itemtype, discount, price, startdate, enddate, servicetype, notes")
+            .select("reqdtlid, itemcode, itemname, description, itemtype, discount, price, startdate, enddate, servicetype, notes, discount_metadata(metadata)")
             .eq("reqid", selectedReqid)
             .then(({ data }) => {
-                setSelectedDetails((data as DetailItem[]) ?? []);
+                setSelectedDetails((data as unknown as DetailItem[]) ?? []);
                 setLoadingDetail(false);
             });
     }, [selectedReqid]);
