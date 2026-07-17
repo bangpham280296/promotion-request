@@ -4,19 +4,15 @@ import { supabaseAdmin } from "@/lib/supabase/supabaseAdmin";
 import { requireAdmin } from "@/lib/auth/apiGuards";
 import type { PushCampaignInput, PushCampaignResponse } from "@/types/voucherify";
 
-function buildVoucherifyBody(req: PushCampaignInput): Record<string, unknown> {
+function buildVoucherifyBody(req: PushCampaignInput, baseMetadata: Record<string, unknown>): Record<string, unknown> {
   // THE ONE RULE: merge campaign + voucher metadata into 1 single object
   const metadata: Record<string, unknown> = {
-    // campaign schema fields
-    camp_name_en:    req.campaign_name,
-    camp_name_vi:    req.campaign_name,
-    camp_summary_en: req.campaign_name,
-    camp_summary_vi: req.campaign_name,
-    // voucher schema fields
-    title_en:              req.campaign_name,
-    title_vi:              req.campaign_name,
-    short_description_en:  req.campaign_name,
-    short_description_vi:  req.campaign_name,
+    // Fallback cho dòng Discount cũ chưa có discount_metadata (tạo trước khi feature này ra đời)
+    title_en: req.campaign_name,
+    title_vi: req.campaign_name,
+    short_description_en: req.campaign_name,
+    short_description_vi: req.campaign_name,
+    ...baseMetadata, // dữ liệu thật đã lưu ghi đè fallback ở trên
     discount_or_egc:       req.discount_or_egc,
     campaign_type_pos:     req.campaign_type_pos,
     campaign_type_nonpos:  req.campaign_type_nonpos,
@@ -120,7 +116,14 @@ export async function POST(request: Request) {
     );
   }
 
-  const voucherifyBody = buildVoucherifyBody(body);
+  const { data: storedMeta } = await supabaseAdmin
+    .from("discount_metadata")
+    .select("metadata")
+    .eq("reqdtlid", body.reqdtlid)
+    .maybeSingle();
+
+  const baseMetadata = (storedMeta?.metadata as Record<string, unknown>) ?? {};
+  const voucherifyBody = buildVoucherifyBody(body, baseMetadata);
 
   // Select endpoint by mode
   const endpoint =
@@ -146,6 +149,7 @@ export async function POST(request: Request) {
       discount_value_vnd:  body.discount_value_vnd ?? null,
       discount_percent:    body.discount_percent ?? null,
       max_discount_cap:    body.max_discount_cap ?? null,
+      metadata_sent:       (voucherifyBody as { metadata?: unknown }).metadata ?? null,
       push_status: "pending",
     })
     .select("id")
