@@ -18,6 +18,7 @@ import {
 import { useVoucherify } from "@/hooks/useVoucherify";
 import VoucherifyStatusBadge from "@/components/voucherify/VoucherifyStatusBadge";
 import VoucherifyPushModal from "@/components/voucherify/VoucherifyPushModal";
+import type { DiscountMetadata } from "@/types/discount-metadata";
 
 function DescriptionCell({ value }: { value: string }) {
     if (!value || !value.includes("|")) return <span>{value ?? "-"}</span>;
@@ -71,6 +72,7 @@ export default function AdminRequestViewModal({ isOpen, onClose, request, onStat
     const [voucherifyItem, setVoucherifyItem] = useState<{
         reqdtlid: number; reqid: number; itemname: string;
         startdate?: string; enddate?: string; price?: number | null;
+        initialMetadata?: DiscountMetadata | null;
     } | null>(null);
 
     const {
@@ -116,7 +118,7 @@ export default function AdminRequestViewModal({ isOpen, onClose, request, onStat
         setPosFilter(null);
         supabase
             .from("promotiondetail")
-            .select("reqdtlid, itemcode, itemname, description, itemtype, discount, price, startdate, enddate, servicetype, notes")
+            .select("reqdtlid, itemcode, itemname, description, itemtype, discount, price, startdate, enddate, servicetype, notes, discount_metadata(metadata)")
             .eq("reqid", request.reqid)
             .then(({ data }) => {
                 const rows = data ?? [];
@@ -337,6 +339,7 @@ export default function AdminRequestViewModal({ isOpen, onClose, request, onStat
                                                                         startdate: item.startdate ?? undefined,
                                                                         enddate:   item.enddate   ?? undefined,
                                                                         price:     item.price     ?? null,
+                                                                        initialMetadata: item.discount_metadata?.metadata ?? null,
                                                                     })
                                                                 }
                                                             />
@@ -396,6 +399,7 @@ export default function AdminRequestViewModal({ isOpen, onClose, request, onStat
             isOpen={!!voucherifyItem}
             onClose={() => setVoucherifyItem(null)}
             item={voucherifyItem}
+            initialMetadata={voucherifyItem?.initialMetadata}
             pushing={pushing}
             pushCampaign={pushCampaign}
             fetchTemplates={fetchTemplates}

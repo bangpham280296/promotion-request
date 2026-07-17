@@ -17,6 +17,7 @@ import type {
   PushCampaignInput,
   PushCampaignResponse,
 } from "@/types/voucherify";
+import type { DiscountMetadata } from "@/types/discount-metadata";
 
 interface PushItem {
   reqdtlid: number;
@@ -31,6 +32,7 @@ interface Props {
   isOpen:         boolean;
   onClose:        () => void;
   item:           PushItem | null;
+  initialMetadata?: DiscountMetadata | null;
   pushing:        boolean;
   pushCampaign:   (data: PushCampaignInput) => Promise<PushCampaignResponse>;
   fetchTemplates: () => Promise<VoucherifyTemplate[]>;
@@ -65,7 +67,7 @@ const AMOUNT_EFFECT_OPTIONS: { value: AmountEffect; label: string }[] = [
 ];
 
 export default function VoucherifyPushModal({
-  isOpen, onClose, item, pushing, pushCampaign, fetchTemplates, searchProducts,
+  isOpen, onClose, item, initialMetadata, pushing, pushCampaign, fetchTemplates, searchProducts,
 }: Props) {
   const [step, setStep] = useState<Step>(1);
 
@@ -101,7 +103,7 @@ export default function VoucherifyPushModal({
     if (!isOpen || !item) return;
     setStep(1);
     setMode("C");
-    setCampaignName(item.itemname);
+    setCampaignName(initialMetadata?.title_en || item.itemname);
     setStartDate(item.startdate ?? "");
     setEndDate(item.enddate ?? "");
     setTemplateId("");
@@ -114,11 +116,11 @@ export default function VoucherifyPushModal({
     setAmountEffect("APPLY_TO_ORDER");
     setVouchersCount("");
     setCodePattern("");
-    setDiscountOrEgc("discount");
-    setCampaignTypePos("promotion");
-    setCampaignTypeNonpos("promotion");
-    setDisplayPriority("1");
-  }, [isOpen, item]);
+    setDiscountOrEgc((initialMetadata?.discount_or_egc as DiscountOrEgc) || "discount");
+    setCampaignTypePos(initialMetadata?.campaign_type_pos || "promotion");
+    setCampaignTypeNonpos(initialMetadata?.campaign_type_nonpos || "promotion");
+    setDisplayPriority(initialMetadata?.display_priority ? String(initialMetadata.display_priority) : "1");
+  }, [isOpen, item, initialMetadata]);
 
   // Load templates khi chọn Mode A
   useEffect(() => {
