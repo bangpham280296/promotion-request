@@ -24,15 +24,32 @@ function DescriptionCell({ value }: { value: string }) {
     if (!value || !value.includes("|")) return <span>{value ?? "-"}</span>;
     return (
         <div className="flex flex-col gap-1">
-            {value.split(" + ").filter(Boolean).map((part, i) => {
-                const segs = part.split("|");
-                if (segs.length >= 3) {
-                    const [code, name, priceQty] = segs;
-                    const qty = priceQty?.match(/\((\d+)\)\s*$/)?.[1] ?? "";
-                    return <span key={i} className="whitespace-nowrap text-theme-sm">• {code} - {name}{qty ? ` (${qty})` : ""}</span>;
-                }
-                const [code, name] = segs;
-                return <span key={i} className="whitespace-nowrap text-theme-sm">• {code && name ? `${code} - ${name}` : part}</span>;
+            {value.split(" + ").filter(Boolean).map((groupStr, gi) => {
+                const alternatives = groupStr.split(" OR ").filter(Boolean);
+                return (
+                    <div key={gi} className="flex flex-col">
+                        {alternatives.map((part, ai) => {
+                            const segs = part.trim().split("|");
+                            let display = "";
+                            if (segs.length >= 3) {
+                                const [code, name, priceQty] = segs;
+                                const qty = priceQty?.match(/\((\d+)\)\s*$/)?.[1] ?? "";
+                                display = `${code} - ${name}${qty ? ` (${qty})` : ""}`;
+                            } else {
+                                const [code, name] = segs;
+                                display = code && name ? `${code} - ${name}` : part.trim();
+                            }
+                            return (
+                                <span key={ai} className="whitespace-nowrap text-theme-sm">
+                                    {ai === 0
+                                        ? `• ${display}`
+                                        : <><span className="inline-block mx-1 text-[10px] font-bold text-brand-500">OR</span>{display}</>
+                                    }
+                                </span>
+                            );
+                        })}
+                    </div>
+                );
             })}
         </div>
     );
