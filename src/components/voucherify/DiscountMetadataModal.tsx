@@ -14,6 +14,7 @@ import {
   DISCOUNT_OR_EGC_OPTIONS,
   CAMPAIGN_TYPE_META_OPTIONS,
 } from "@/types/discount-metadata";
+import { formatThumbnailUrl } from "@/lib/voucherify/utils";
 
 interface Props {
   isOpen: boolean;
@@ -50,7 +51,12 @@ export default function DiscountMetadataModal({ isOpen, initialValue, onSave, on
       toast.error("Short Description (EN) and (VI) are required.", { position: "top-center" });
       return;
     }
-    onSave(form);
+    const formattedThumbnail = formatThumbnailUrl(form.thumbnail);
+    const sanitizedForm: DiscountMetadata = {
+      ...form,
+      thumbnail: formattedThumbnail ?? "",
+    };
+    onSave(sanitizedForm);
     onClose();
   };
 
@@ -98,7 +104,10 @@ export default function DiscountMetadataModal({ isOpen, initialValue, onSave, on
             </div>
             <div>
               <Label>Thumbnail URL</Label>
-              <Input type="text" placeholder="https://..." value={form.thumbnail ?? ""} onChange={(e) => set("thumbnail", e.target.value)} />
+              <Input type="text" placeholder="https://... hoặc link Google Drive" value={form.thumbnail ?? ""} onChange={(e) => set("thumbnail", e.target.value)} />
+              <p className="mt-1 text-[11px] text-gray-400">
+                Nhập link ảnh trực tiếp (.jpg, .png) hoặc link Google Drive (sẽ tự động chuyển đổi sang link ảnh trực tiếp).
+              </p>
             </div>
           </div>
 

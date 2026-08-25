@@ -75,6 +75,36 @@ export function useVoucherify() {
     [fetchHistory]
   );
 
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const deleteCampaign = useCallback(
+    async (pushId: number, campaignId: string, reqdtlid: number): Promise<void> => {
+      setIsDeleting(true);
+      setError(null);
+      try {
+        const res = await fetch(`/api/voucherify/campaigns/${campaignId}?pushId=${pushId}`, {
+          method: "DELETE",
+        });
+        const json = await res.json();
+        if (!res.ok) {
+          const errMsg = typeof json.error === "string"
+            ? json.error
+            : (json.error?.message ?? json.message ?? "Delete failed");
+          throw new Error(errMsg);
+        }
+        // Refresh history
+        await fetchHistory(reqdtlid);
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : "Delete failed";
+        setError(errorMsg);
+        throw err;
+      } finally {
+        setIsDeleting(false);
+      }
+    },
+    [fetchHistory]
+  );
+
   const fetchTemplates = useCallback(async (): Promise<VoucherifyTemplate[]> => {
     try {
       const res = await fetch("/api/voucherify/templates");
@@ -106,10 +136,12 @@ export function useVoucherify() {
   return {
     historyByReqdtlid,
     pushing,
+    isDeleting,
     error,
     fetchHistory,
     getLatestSuccess,
     pushCampaign,
+    deleteCampaign,
     fetchTemplates,
     searchProducts,
   };

@@ -1,7 +1,7 @@
 // src/types/voucherify.ts
 
 export type VoucherifyMode = "A" | "B" | "C";
-export type PushStatus = "pending" | "success" | "failed";
+export type PushStatus = "pending" | "success" | "failed" | "deleted";
 export type DiscountOrEgc = "discount" | "egc";
 export type CampaignTypeOption = "tender" | "item" | "promotion";
 export type DiscountType = "AMOUNT" | "PERCENT";

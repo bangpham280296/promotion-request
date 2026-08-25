@@ -79,9 +79,11 @@ export default function AdminRequestViewModal({ isOpen, onClose, request, onStat
 
     const {
         pushing,
+        isDeleting,
         fetchHistory,
         getLatestSuccess,
         pushCampaign,
+        deleteCampaign,
         fetchTemplates,
         searchProducts,
     } = useVoucherify();
@@ -348,6 +350,14 @@ export default function AdminRequestViewModal({ isOpen, onClose, request, onStat
                                                         {item.itemtype === "discount" && item.reqdtlid ? (
                                                             <VoucherifyStatusBadge
                                                                 latestPush={getLatestSuccess(item.reqdtlid)}
+                                                                isDeleting={isDeleting}
+                                                                onDeleteClick={async (pushId, campaignId) => {
+                                                                    try {
+                                                                        await deleteCampaign(pushId, campaignId, item.reqdtlid);
+                                                                    } catch (err: any) {
+                                                                        toast.error(err.message ?? "Failed to delete campaign");
+                                                                    }
+                                                                }}
                                                                 onPushClick={() =>
                                                                     setVoucherifyItem({
                                                                         reqdtlid:  item.reqdtlid,

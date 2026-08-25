@@ -4,7 +4,9 @@ import { supabaseAdmin } from "@/lib/supabase/supabaseAdmin";
 import { requireAdmin } from "@/lib/auth/apiGuards";
 import type { PushCampaignInput, PushCampaignResponse } from "@/types/voucherify";
 
-function buildVoucherifyBody(req: PushCampaignInput, baseMetadata: Record<string, unknown>): Record<string, unknown> {
+import { formatThumbnailUrl } from "@/lib/voucherify/utils";
+
+function buildVoucherifyBody(req: PushCampaignInput, baseMetadata: Record<string, unknown>, appUrl: string): Record<string, unknown> {
   // THE ONE RULE: merge campaign + voucher metadata into 1 single object
   const metadata: Record<string, unknown> = {
     // Fallback cho dòng Discount cũ chưa có discount_metadata (tạo trước khi feature này ra đời)
@@ -18,6 +20,25 @@ function buildVoucherifyBody(req: PushCampaignInput, baseMetadata: Record<string
     campaign_type_nonpos:  req.campaign_type_nonpos,
     display_priority:      req.display_priority,
   };
+
+  // Format & sanitize thumbnail URL (converts Google Drive links to proxy image URLs, removes empty/whitespace string)
+  if (typeof metadata.thumbnail === "string") {
+    const formatted = formatThumbnailUrl(metadata.thumbnail, appUrl);
+    if (formatted) {
+      metadata.thumbnail = formatted;
+    } else {
+      delete metadata.thumbnail;
+    }
+  } else if (!metadata.thumbnail) {
+    delete metadata.thumbnail;
+  }
+
+  // Omit empty strings, nulls, and undefined values from metadata to prevent Voucherify schema validation errors
+  Object.keys(metadata).forEach((key) => {
+    if (metadata[key] === "" || metadata[key] === null || metadata[key] === undefined) {
+      delete metadata[key];
+    }
+  });
 
   const base: Record<string, unknown> = {
     name: req.campaign_name,
@@ -122,8 +143,19 @@ export async function POST(request: Request) {
     .eq("reqdtlid", body.reqdtlid)
     .maybeSingle();
 
+  // Determine appUrl to generate absolute proxy image URLs
+  const host = request.headers.get("x-forwarded-host") || request.headers.get("host");
+  const protocol = request.headers.get("x-forwarded-proto") || "https";
+  let appUrl = host ? `${protocol}://${host}` : new URL(request.url).origin;
+
+  // Localhost / Dev fallback: Voucherify rejects localhost or HTTP URLs due to security (SSRF) and schema rules.
+  // We MUST fallback to a public HTTPS domain to allow testing the push functionality on local environments.
+  if (appUrl.includes("localhost") || appUrl.includes("127.0.0.1") || protocol === "http") {
+    appUrl = process.env.NEXT_PUBLIC_APP_URL || "https://das.kfcvietnam.com.vn";
+  }
+
   const baseMetadata = (storedMeta?.metadata as Record<string, unknown>) ?? {};
-  const voucherifyBody = buildVoucherifyBody(body, baseMetadata);
+  const voucherifyBody = buildVoucherifyBody(body, baseMetadata, appUrl);
 
   // Select endpoint by mode
   const endpoint =
