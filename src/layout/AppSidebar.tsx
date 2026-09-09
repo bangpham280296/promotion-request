@@ -16,7 +16,6 @@ import {
   ListIcon,
   LockIcon,
 } from "../icons/index";
-import SidebarWidget from "./SidebarWidget";
 
 type NavItem = {
   name: string;
@@ -91,7 +90,7 @@ const AppSidebar: React.FC = () => {
     navItems: NavItem[],
     menuType: "main" | "others"
   ) => (
-    <ul className="flex flex-col gap-4">
+    <ul className="flex flex-col gap-1.5">
       {navItems.map((nav, index) => (
         <li key={nav.name}>
           {nav.subItems ? (
@@ -130,6 +129,7 @@ const AppSidebar: React.FC = () => {
             nav.path && (
               <Link
                 href={nav.path}
+                prefetch={true}
                 className={`menu-item group ${isActive(nav.path) ? "menu-item-active" : "menu-item-inactive"
                   }`}
               >
@@ -165,6 +165,7 @@ const AppSidebar: React.FC = () => {
                   <li key={subItem.name}>
                     <Link
                       href={subItem.path}
+                      prefetch={true}
                       className={`menu-dropdown-item ${isActive(subItem.path)
                         ? "menu-dropdown-item-active"
                         : "menu-dropdown-item-inactive"
@@ -282,47 +283,44 @@ const AppSidebar: React.FC = () => {
       onMouseEnter={() => !isExpanded && setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
+      {/* Compact Brand Header (Height fixed at 64px) */}
       <div
-        className={`py-8 flex  ${!isExpanded && !isHovered ? "lg:justify-center" : "justify-center"
-          }`}
+        className={`h-16 shrink-0 flex items-center border-b border-gray-100 dark:border-gray-800/80 mb-2 ${
+          !isExpanded && !isHovered ? "lg:justify-center" : "justify-between"
+        }`}
       >
-        <Link href="/">
-          {isExpanded || isHovered || isMobileOpen ? (
-            <>
-              <Image
-                className="dark:hidden"
-                src="/images/logo/kfc-icon-2.svg"
-                alt="Logo"
-                width={100}
-                height={30}
-              />
-              <Image
-                className="hidden dark:block"
-                src="/images/logo/kfc-icon-2.svg"
-                alt="Logo"
-                width={100}
-                height={30}
-              />
-            </>
-          ) : (
-            <Image
-              src="/images/logo/kfc-icon-2.svg"
-              alt="Logo"
-              width={32}
-              height={32}
-            />
+        <Link href="/" className="flex items-center gap-3">
+          <Image
+            src="/images/logo/kfc-icon-2.svg"
+            alt="KFC Logo"
+            width={34}
+            height={34}
+            className="w-8 h-8 object-contain shrink-0"
+          />
+          {(isExpanded || isHovered || isMobileOpen) && (
+            <div className="flex flex-col">
+              <span className="font-bold tracking-wider text-red-600 dark:text-red-500 text-base leading-none">
+                KFC
+              </span>
+              <span className="text-[10px] text-gray-400 font-medium tracking-tight mt-0.5">
+                Promotion System
+              </span>
+            </div>
           )}
         </Link>
       </div>
-      <div className="flex-1 flex flex-col overflow-hidden duration-300 ease-linear">
-        <nav className="flex-1 overflow-y-auto no-scrollbar py-4">
+
+      {/* Main Navigation with Slim Scrollbar & min-h-0 flex prevention */}
+      <div className="flex-1 min-h-0 flex flex-col overflow-hidden duration-300 ease-linear">
+        <nav className="flex-1 min-h-0 overflow-y-auto custom-scrollbar py-2 pr-1">
           <div className="flex flex-col gap-4">
             <div>
               <h2
-                className={`mb-4 text-xs uppercase flex leading-5 text-gray-400 ${!isExpanded && !isHovered
-                  ? "lg:justify-center"
-                  : "justify-start"
-                  }`}
+                className={`mb-2 text-xs uppercase flex leading-5 text-gray-400 font-semibold tracking-wider ${
+                  !isExpanded && !isHovered
+                    ? "lg:justify-center"
+                    : "justify-start"
+                }`}
               >
                 {isExpanded || isHovered || isMobileOpen ? (
                   "Menu"
@@ -334,12 +332,13 @@ const AppSidebar: React.FC = () => {
             </div>
 
             {isAdmin && (
-              <div className="">
+              <div>
                 <h2
-                  className={`mb-4 text-xs uppercase flex leading-5 text-gray-400 ${!isExpanded && !isHovered
-                    ? "lg:justify-center"
-                    : "justify-start"
-                    }`}
+                  className={`mb-2 text-xs uppercase flex leading-5 text-gray-400 font-semibold tracking-wider ${
+                    !isExpanded && !isHovered
+                      ? "lg:justify-center"
+                      : "justify-start"
+                  }`}
                 >
                   {isExpanded || isHovered || isMobileOpen ? (
                     "Admin"
@@ -352,7 +351,70 @@ const AppSidebar: React.FC = () => {
             )}
           </div>
         </nav>
-        {isExpanded || isHovered || isMobileOpen ? <SidebarWidget onSignOut={handleLogout} /> : null}
+
+        {/* Modern Compact User Footer Bar (48-52px height instead of 260px widget) */}
+        <div className="shrink-0 pt-3 pb-3 mt-auto border-t border-gray-100 dark:border-gray-800/80">
+          {isExpanded || isHovered || isMobileOpen ? (
+            <div className="flex items-center justify-between p-2 rounded-xl bg-gray-50/80 dark:bg-white/[0.03] border border-gray-100 dark:border-gray-800/60">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-full bg-brand-50 text-brand-600 dark:bg-brand-500/20 dark:text-brand-400 flex items-center justify-center font-bold text-xs shrink-0 ring-1 ring-brand-500/20">
+                  {profile?.fullname ? profile.fullname.charAt(0).toUpperCase() : "K"}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-semibold text-gray-800 dark:text-white/90 truncate leading-tight">
+                    {profile?.fullname || "Staff User"}
+                  </p>
+                  <p className="text-[11px] text-gray-400 truncate leading-tight mt-0.5">
+                    {profile?.department?.deptname || profile?.role || "KFC Staff"}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={handleLogout}
+                title="Sign Out"
+                className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 dark:hover:text-red-400 transition-colors shrink-0"
+              >
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                  <polyline points="16 17 21 12 16 7" />
+                  <line x1="21" y1="12" x2="9" y2="12" />
+                </svg>
+              </button>
+            </div>
+          ) : (
+            <div className="flex justify-center">
+              <button
+                onClick={handleLogout}
+                title="Sign Out"
+                className="p-2 rounded-xl text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10 dark:hover:text-red-400 transition-colors"
+              >
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                  <polyline points="16 17 21 12 16 7" />
+                  <line x1="21" y1="12" x2="9" y2="12" />
+                </svg>
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </aside>
   );

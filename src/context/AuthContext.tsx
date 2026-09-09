@@ -6,7 +6,7 @@ import { toast } from "sonner";
 
 // Cleared automatically when the browser tab/window is closed
 const SESSION_ALIVE_KEY = "sb-session-alive";
-const INACTIVITY_MS = 20 * 60 * 1000; // 20 minutes
+const PROFILE_CACHE_KEY = "sb-profile-cache";
 
 type AuthContextType = {
     user: any | null;
@@ -28,22 +28,44 @@ const AuthContext = createContext<AuthContextType>({
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<any>(null);
-    const [profile, setProfile] = useState<any>(null);
+    const [profile, setProfile] = useState<any>(() => {
+        // Hydrate cached profile immediately on client
+        if (typeof window !== "undefined") {
+            try {
+                const cached = localStorage.getItem(PROFILE_CACHE_KEY);
+                return cached ? JSON.parse(cached) : null;
+            } catch {
+                return null;
+            }
+        }
+        return null;
+    });
     const [authLoading, setAuthLoading] = useState(true);
     const [profileLoading, setProfileLoading] = useState(true);
 
     const fetchProfile = async (userId: string, email: string) => {
         setProfileLoading(true);
-        const { data, error } = await supabase
-            .from("employees")
-            .select(`*, department:department_id(id, deptcode, deptname)`)
-            .eq("user_id", userId)
-            .maybeSingle();
+        try {
+            const { data, error } = await supabase
+                .from("employees")
+                .select(`*, department:department_id(id, deptcode, deptname)`)
+                .eq("user_id", userId)
+                .maybeSingle();
 
-        if (!error) {
-            setProfile({ ...data, email });
+            if (!error && data) {
+                const fullProfile = { ...data, email };
+                setProfile(fullProfile);
+                if (typeof window !== "undefined") {
+                    try {
+                        localStorage.setItem(PROFILE_CACHE_KEY, JSON.stringify(fullProfile));
+                    } catch {}
+                }
+            }
+        } catch (err) {
+            console.error("Failed to fetch profile:", err);
+        } finally {
+            setProfileLoading(false);
         }
-        setProfileLoading(false);
     };
 
     // Auth init + browser-close guard
@@ -54,24 +76,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             // If sessionStorage flag is missing, the browser was closed → force clear session
             if (typeof window !== "undefined") {
                 if (!sessionStorage.getItem(SESSION_ALIVE_KEY)) {
+                    if (typeof window !== "undefined") {
+                        localStorage.removeItem(PROFILE_CACHE_KEY);
+                    }
                     await supabase.auth.signOut();
                 }
                 sessionStorage.setItem(SESSION_ALIVE_KEY, "1");
             }
 
             // onAuthStateChange fires immediately with INITIAL_SESSION
-            const { data: listener } = supabase.auth.onAuthStateChange(async (event, session) => {
+            const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
                 const u = session?.user ?? null;
                 setUser(u);
 
-                if (u && (event === "INITIAL_SESSION" || event === "SIGNED_IN")) {
-                    await fetchProfile(u.id, u.email ?? "");
+                // ✅ UNBLOCK AUTH IMMEDIATELY: Allows router.push/replace and page rendering in <50ms
+                setAuthLoading(false);
+
+                if (u && (event === "INITIAL_SESSION" || event === "SIGNED_IN" || event === "USER_UPDATED")) {
+                    // Non-blocking background fetch
+                    fetchProfile(u.id, u.email ?? "");
                 } else if (!u) {
                     setProfile(null);
                     setProfileLoading(false);
+                    if (typeof window !== "undefined") {
+                        localStorage.removeItem(PROFILE_CACHE_KEY);
+                    }
                 }
-
-                setAuthLoading(false);
             });
 
             listenerUnsub = () => listener.subscription.unsubscribe();
@@ -82,31 +112,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return () => listenerUnsub?.();
     }, []);
 
-    // Inactivity auto-logout after 20 minutes
-    useEffect(() => {
-        if (!user) return;
-
-        let inactivityTimer: ReturnType<typeof setTimeout>;
-
-        const resetTimer = () => {
-            clearTimeout(inactivityTimer);
-            inactivityTimer = setTimeout(async () => {
-                toast.info("You have been logged out due to inactivity.");
-                await supabase.auth.signOut();
-            }, INACTIVITY_MS);
-        };
-
-        const events = ["mousemove", "mousedown", "keydown", "touchstart", "scroll"];
-        events.forEach((e) => window.addEventListener(e, resetTimer, { passive: true }));
-        resetTimer(); // Start timer on login
-
-        return () => {
-            clearTimeout(inactivityTimer);
-            events.forEach((e) => window.removeEventListener(e, resetTimer));
-        };
-    }, [user]);
-
     const logout = async () => {
+        if (typeof window !== "undefined") {
+            localStorage.removeItem(PROFILE_CACHE_KEY);
+        }
+        setProfile(null);
         await supabase.auth.signOut();
     };
 

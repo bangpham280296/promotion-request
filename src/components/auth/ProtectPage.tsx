@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import useAuth from "@/hooks/useAuth";
+import TableSkeleton from "@/components/common/TableSkeleton";
 
 export default function Protected({ children }: { children: React.ReactNode }) {
     const { user, loading } = useAuth();
@@ -14,7 +15,7 @@ export default function Protected({ children }: { children: React.ReactNode }) {
         }
     }, [user, loading, router]);
 
-    if (loading) return <div>Loading...</div>;
+    if (loading) return <TableSkeleton rows={6} />;
     if (!user) return null;
 
     return <>{children}</>;

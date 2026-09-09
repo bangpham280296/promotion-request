@@ -26,6 +26,8 @@ const statusBadgeColor = (name: string): "success" | "warning" | "error" | "info
     return "info";
 };
 
+import TableSkeleton from "@/components/common/TableSkeleton";
+
 export default function HistoryRequestTable() {
     const { user, loading: authLoading } = useAuth();
     const userId = user?.id ?? null;
@@ -39,8 +41,8 @@ export default function HistoryRequestTable() {
 
     const loading = authLoading || requestLoading;
 
-    if (loading) return <p>Loading...</p>;
-    if (error) return <p>Error: {error}</p>;
+    if (loading) return <TableSkeleton rows={8} />;
+    if (error) return <p className="p-4 text-red-500">Error: {error}</p>;
 
     const itemsPerPage = 10;
 

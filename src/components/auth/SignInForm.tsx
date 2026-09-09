@@ -18,23 +18,37 @@ export default function SignInForm() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Pre-warm the dashboard route cache on mount for instant navigation
+  React.useEffect(() => {
+    router.prefetch("/");
+  }, [router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
+    setIsSubmitting(true);
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (error) {
-      toast.error(error.message);
-    } else {
-      toast.success("Login successfully!", {
-        description: "You have been logged in successfully.",
-        closeButton: true,
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
       });
-      router.push("/");
+
+      if (error) {
+        toast.error(error.message);
+        setIsSubmitting(false);
+      } else {
+        toast.success("Login successfully!", {
+          description: "You have been logged in successfully.",
+          closeButton: true,
+        });
+        router.replace("/");
+      }
+    } catch {
+      toast.error("An unexpected error occurred. Please try again.");
+      setIsSubmitting(false);
     }
   };
 
@@ -150,8 +164,8 @@ export default function SignInForm() {
                   </div>
                 </div>
                 <div>
-                  <Button type="submit" className="w-full" size="sm">
-                    Sign in
+                  <Button type="submit" className="w-full" size="sm" disabled={isSubmitting}>
+                    {isSubmitting ? "Signing in..." : "Sign in"}
                   </Button>
                 </div>
               </div>

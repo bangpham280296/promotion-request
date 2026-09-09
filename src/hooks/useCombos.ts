@@ -83,6 +83,10 @@ export function parseComboDescription(description: string | null): ParsedCompone
   return result;
 }
 
+// In-memory SWR cache across component unmounts
+const comboCache = new Map<string, { combos: ComboRecord[]; totalCount: number; timestamp: number }>();
+const CACHE_TTL_MS = 60 * 1000; // 60 seconds freshness
+
 export function useCombos() {
   const [combos, setCombos] = useState<ComboRecord[]>([]);
   const [totalCount, setTotalCount] = useState(0);
@@ -95,12 +99,27 @@ export function useCombos() {
     minCode: number | null = null,
     maxCode: number | null = null,
   ) => {
-    setLoading(true);
+    const q = search.trim();
+    const cacheKey = `${page}|${q}|${minCode ?? ""}|${maxCode ?? ""}`;
+    const cached = comboCache.get(cacheKey);
+
+    // 1. Instant Cache Hit: Return cached data immediately (0ms UI latency)
+    if (cached) {
+      setCombos(cached.combos);
+      setTotalCount(cached.totalCount);
+      setLoading(false);
+      // If still fresh, avoid background network call
+      if (Date.now() - cached.timestamp < CACHE_TTL_MS) {
+        return;
+      }
+    } else {
+      setLoading(true);
+    }
+
     setError(null);
 
     const from = (page - 1) * PAGE_SIZE;
     const to = from + PAGE_SIZE - 1;
-    const q = search.trim();
 
     let query = supabase
       .from("promotiondetail")
@@ -129,8 +148,12 @@ export function useCombos() {
     if (fetchError) {
       setError(fetchError.message);
     } else {
-      setCombos((data ?? []) as unknown as ComboRecord[]);
-      setTotalCount(count ?? 0);
+      const records = (data ?? []) as unknown as ComboRecord[];
+      const total = count ?? 0;
+      setCombos(records);
+      setTotalCount(total);
+      // Update cache
+      comboCache.set(cacheKey, { combos: records, totalCount: total, timestamp: Date.now() });
     }
 
     setLoading(false);
@@ -142,6 +165,8 @@ export function useCombos() {
       .delete()
       .eq("reqdtlid", reqdtlid);
     if (error) throw error;
+    // Invalidate cache after delete
+    comboCache.clear();
   };
 
   return { combos, totalCount, loading, error, fetchCombos, deleteCombo };

@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabase/supabaseClient";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 
 type UseAutoLogoutOptions = {
   timeout?: number;
@@ -20,6 +21,7 @@ export default function useAutoLogout({
     if (!enabled) return;
 
     const logout = async () => {
+      toast.info("You have been logged out due to inactivity.");
       await supabase.auth.signOut();
 
       router.replace("/signin");

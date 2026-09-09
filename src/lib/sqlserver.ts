@@ -10,16 +10,41 @@ const config: sql.config = {
     trustServerCertificate: true,
     encrypt: false,
   },
-  connectionTimeout: 10000,
+  pool: {
+    max: 10,
+    min: 2,
+    idleTimeoutMillis: 30000,
+  },
+  connectionTimeout: 8000,
   requestTimeout: 15000,
 };
 
-let pool: sql.ConnectionPool | null = null;
+// Maintain singleton pool on globalThis across Next.js Hot Module Reloads (HMR)
+declare global {
+  // eslint-disable-next-line no-var
+  var _mssqlPoolPromise: Promise<sql.ConnectionPool> | undefined;
+}
 
 export async function getSqlPool(): Promise<sql.ConnectionPool> {
-  if (pool && pool.connected) return pool;
-  pool = await sql.connect(config);
-  return pool;
+  if (!globalThis._mssqlPoolPromise) {
+    globalThis._mssqlPoolPromise = new sql.ConnectionPool(config)
+      .connect()
+      .then((pool) => {
+        pool.on("error", (err) => {
+          console.error("[MSSQL Pool Error]:", err);
+          // Invalidate pool on fatal error so next request reconnects
+          globalThis._mssqlPoolPromise = undefined;
+        });
+        return pool;
+      })
+      .catch((err) => {
+        console.error("[MSSQL Connection Error]:", err);
+        globalThis._mssqlPoolPromise = undefined;
+        throw err;
+      });
+  }
+
+  return globalThis._mssqlPoolPromise;
 }
 
 export { sql };

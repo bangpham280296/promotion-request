@@ -6,6 +6,7 @@ import { ThemeProvider } from '@/context/ThemeContext';
 import { AuthProvider } from '@/context/AuthContext';
 import { Toaster } from "sonner";
 import AppClientWrapper from '@/components/AppClientWrapper';
+import SWRProvider from '@/components/providers/SWRProvider';
 
 const outfit = Outfit({
   subsets: ["latin"],
@@ -22,7 +23,9 @@ export default function RootLayout({
         <ThemeProvider>
           <AuthProvider>
             <AppClientWrapper>
-              <SidebarProvider>{children}</SidebarProvider>
+              <SWRProvider>
+                <SidebarProvider>{children}</SidebarProvider>
+              </SWRProvider>
             </AppClientWrapper>
           </AuthProvider>
           <Toaster position="top-right" richColors />

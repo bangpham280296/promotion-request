@@ -1,42 +1,42 @@
-import { useEffect, useState, useCallback } from "react";
+import useSWR from "swr";
+import { useCallback } from "react";
 import { supabase } from "@/lib/supabase/supabaseClient";
 
-export function useUserRequests(userId: string | null) {
-  const [requests, setRequests] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchRequests = useCallback(async () => {
-    if (!userId) {
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-
-    const { data, error } = await supabase
-      .from("requests")
-      .select(`
-      *,
+async function fetcher(userId: string) {
+  const { data, error } = await supabase
+    .from("requests")
+    .select(`
+      reqid, requestcode, promotionname, startdate, enddate, createdate, updateat, requester,
       promotiondetail(*, discount_metadata(metadata)),
       department(deptname),
       employees:employees!request_requester_fkey (fullname),
       stt:status(*)
-      `)
-      .eq("requester", userId)
-      .order("reqid", { ascending: false });
+    `)
+    .eq("requester", userId)
+    .order("reqid", { ascending: false });
 
-    if (error) {
-      setError(error.message);
-    } else {
-      setRequests(data);
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
+export function useUserRequests(userId: string | null) {
+  const { data, error, isLoading, mutate } = useSWR<any[]>(
+    userId ? ["user-requests", userId] : null,
+    () => fetcher(userId!),
+    {
+      revalidateOnFocus: false,
+      dedupingInterval: 30000,
     }
+  );
 
-    setLoading(false);
-  }, [userId]);
+  const requests: any[] = data ?? [];
+  // Loading is true only on first cold load when no cached data exists
+  const loading = Boolean(userId && !data && isLoading);
+  const errorMessage = error ? (error instanceof Error ? error.message : String(error)) : null;
 
-  useEffect(() => {
-    fetchRequests();
-  }, [fetchRequests]);
+  const fetchRequests = useCallback(async () => {
+    await mutate();
+  }, [mutate]);
 
   const editRequest = async (reqid: number, header: any, details: any[], originalDetails: any[]) => {
     const nowVN = new Date().toLocaleString("sv-SE", { timeZone: "Asia/Ho_Chi_Minh" }).replace(" ", "T") + "+07:00";
@@ -117,8 +117,8 @@ export function useUserRequests(userId: string | null) {
       if (error) throw error;
     }
 
-    // 5. Refresh danh sách
-    await fetchRequests();
+    // 5. Revalidate SWR cache
+    await mutate();
   };
 
   const deactivateRequest = async (reqid: number) => {
@@ -127,8 +127,8 @@ export function useUserRequests(userId: string | null) {
       .update({ stt: 2 })
       .eq("reqid", reqid);
     if (error) throw error;
-    await fetchRequests();
+    await mutate();
   };
 
-  return { requests, loading, error, editRequest, fetchRequests, deactivateRequest };
+  return { requests, loading, error: errorMessage, editRequest, fetchRequests, deactivateRequest };
 }
