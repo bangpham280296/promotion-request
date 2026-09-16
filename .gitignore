@@ -37,10 +37,16 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# IDE & Tooling metadata (local only)
+/.claude/
+
 # Project documentation (local only)
 /ClaudeProject/
-
 /docs/
 
-# SQL scripts (local only)
+# Database & SQL scripts (local only)
+/supabase/
 *.sql
+
+# Excel & temporary data files
+*.xlsx
