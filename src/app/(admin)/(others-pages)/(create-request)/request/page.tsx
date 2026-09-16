@@ -87,6 +87,21 @@ export default function RequestForm() {
 
             const result = await addRequest(mappedReq, mappedDetails);
 
+            // Gửi email thông báo tự động (Fail-safe: không gián đoạn luồng tạo request nếu mail lỗi)
+            try {
+                const mailRes = await fetch("/api/requests/send-notification", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ reqid: result.reqid }),
+                });
+                const mailData = await mailRes.json();
+                if (!mailRes.ok || !mailData.success) {
+                    toast.warning("Tạo request thành công nhưng gửi email thông báo thất bại!");
+                }
+            } catch (mailErr) {
+                toast.warning("Tạo request thành công nhưng không thể kết nối gửi email!");
+            }
+
             setSubmittedInfo({
                 requestcode: result.requestcode ?? "",
                 promotionname: req.promotionname,
