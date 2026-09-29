@@ -94,10 +94,26 @@ export default function ModifierGroupList({
       {/* List content */}
       <div className="flex-1 overflow-y-auto p-3 space-y-2 max-h-[calc(100vh-280px)]">
         {loading && groups.length === 0 ? (
-          <div className="py-12 text-center text-xs text-gray-400">
-            Loading modifier groups...
+          <div className="space-y-2 animate-pulse">
+            {[...Array(5)].map((_, i) => (
+              <div
+                key={i}
+                className="rounded-xl border border-gray-100 dark:border-white/[0.05] p-3.5 space-y-2 bg-gray-50/50 dark:bg-white/[0.01]"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="h-4 w-32 rounded bg-gray-200 dark:bg-gray-700/60" />
+                  <div className="h-5 w-14 rounded-full bg-gray-200 dark:bg-gray-700/60" />
+                </div>
+                <div className="h-3 w-44 rounded bg-gray-100 dark:bg-gray-800" />
+                <div className="flex items-center gap-3 pt-1">
+                  <div className="h-3 w-16 rounded bg-gray-100 dark:bg-gray-800" />
+                  <div className="h-3 w-16 rounded bg-gray-100 dark:bg-gray-800" />
+                </div>
+              </div>
+            ))}
           </div>
         ) : filteredGroups.length === 0 ? (
+
           <div className="py-12 text-center text-xs text-gray-400">
             {search || statusFilter !== "all"
               ? "No modifier groups match your filter."

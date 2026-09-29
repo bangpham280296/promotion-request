@@ -41,7 +41,7 @@ export default function HistoryRequestTable() {
 
     const loading = authLoading || requestLoading;
 
-    if (loading) return <TableSkeleton rows={8} />;
+    if (loading) return <TableSkeleton rows={8} title="My Promotion Requests" />;
     if (error) return <p className="p-4 text-red-500">Error: {error}</p>;
 
     const itemsPerPage = 10;

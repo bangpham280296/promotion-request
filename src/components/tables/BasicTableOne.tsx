@@ -619,20 +619,38 @@ export default function BasicTableOne() {
 
               <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
                 {loading ? (
-                  <TableRow className="h-[550px]">
-                    <TableCell
-                      colSpan={isAdmin ? 7 : 6}
-                      className="px-5 py-8 text-center text-sm text-gray-400 h-[550px]"
-                    >
-                      <div className="flex flex-col items-center justify-center gap-3 h-full min-h-[480px]">
-                        <div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
-                        <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                          Loading requests...
-                        </span>
-                      </div>
-                    </TableCell>
-                  </TableRow>
+                  [...Array(pageSize || 8)].map((_, i) => (
+                    <TableRow key={i} className="animate-pulse">
+                      <TableCell className="px-5 py-4 w-[190px] max-w-[190px]">
+                        <div className="h-4 w-28 rounded bg-gray-200 dark:bg-gray-700/60" />
+                      </TableCell>
+                      <TableCell className="px-5 py-4">
+                        <div className="h-4 w-48 rounded bg-gray-200 dark:bg-gray-700/60" />
+                      </TableCell>
+                      <TableCell className="px-5 py-4">
+                        <div className="space-y-1.5">
+                          <div className="h-4 w-32 rounded bg-gray-200 dark:bg-gray-700/60" />
+                          <div className="h-3 w-20 rounded bg-gray-100 dark:bg-gray-800" />
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-5 py-4">
+                        <div className="h-4 w-24 rounded bg-gray-100 dark:bg-gray-800" />
+                      </TableCell>
+                      <TableCell className="px-5 py-4">
+                        <div className="h-4 w-24 rounded bg-gray-100 dark:bg-gray-800" />
+                      </TableCell>
+                      <TableCell className="px-5 py-4">
+                        <div className="h-6 w-20 rounded-full bg-gray-200 dark:bg-gray-700/60" />
+                      </TableCell>
+                      {isAdmin && (
+                        <TableCell className="px-5 py-4">
+                          <div className="h-8 w-8 rounded-lg bg-gray-100 dark:bg-gray-800" />
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))
                 ) : requests.length === 0 ? (
+
                   <TableRow className="h-[550px]">
                     <TableCell
                       colSpan={isAdmin ? 7 : 6}

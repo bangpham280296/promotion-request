@@ -16,6 +16,7 @@ import { exportRequestToExcel } from "./exportRequestToExcel";
 import { usePOSVerify, type POSVerifyResult } from "@/hooks/usePOSVerify";
 import useProfile from "@/hooks/useProfile";
 import { POSVerifyButton, POSVerifyStatusCell, POSVerifyDiffRow } from "@/components/pos-verify/POSVerify";
+import { formatCurrency } from "@/lib/utils/formatCurrency";
 
 const statusBadgeColor = (name: string): "success" | "warning" | "error" | "info" => {
     const n = name.toLowerCase();
@@ -533,7 +534,9 @@ export default function RequestViewModal({ isOpen, onClose, request, onSave, onD
                                                         </td>
                                                         <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{item.servicetype || "-"}</td>
                                                         <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{item.discount ?? "-"}</td>
-                                                        <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{item.price ?? "-"}</td>
+                                                        <td className="px-4 py-3 text-gray-700 dark:text-gray-300 font-medium">
+                                                            {formatCurrency(item.price)}
+                                                        </td>
                                                         <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{item.startdate || "-"}</td>
                                                         <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{item.enddate || "-"}</td>
                                                         <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{item.notes || "-"}</td>

@@ -19,6 +19,7 @@ import { useVoucherify } from "@/hooks/useVoucherify";
 import VoucherifyStatusBadge from "@/components/voucherify/VoucherifyStatusBadge";
 import VoucherifyPushModal from "@/components/voucherify/VoucherifyPushModal";
 import type { DiscountMetadata } from "@/types/discount-metadata";
+import { formatCurrency } from "@/lib/utils/formatCurrency";
 
 function DescriptionCell({ value }: { value: string }) {
     if (!value || !value.includes("|")) return <span>{value ?? "-"}</span>;
@@ -367,7 +368,9 @@ export default function AdminRequestViewModal({ isOpen, onClose, request, onStat
                                                         <td className="px-4 py-3 text-gray-700 dark:text-gray-300"><DescriptionCell value={item.description ?? ""} /></td>
                                                         <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{item.servicetype || "-"}</td>
                                                         <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{item.discount ?? "-"}</td>
-                                                        <td className="px-4 py-3 text-gray-700 dark:text-gray-300">{item.price ?? "-"}</td>
+                                                        <td className="px-4 py-3 text-gray-700 dark:text-gray-300 font-medium">
+                                                            {formatCurrency(item.price)}
+                                                        </td>
                                                         <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">{item.startdate || "-"}</td>
                                                         <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">{item.enddate || "-"}</td>
                                                         <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{item.notes || "-"}</td>

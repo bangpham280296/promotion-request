@@ -167,12 +167,36 @@ export default function ItemTable() {
 
                         <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
                             {loading ? (
-                                <tr>
-                                    <td colSpan={8} className="px-5 py-8 text-center text-sm text-gray-400 dark:text-gray-500">
-                                        Loading...
-                                    </td>
-                                </tr>
+                                [...Array(8)].map((_, i) => (
+                                    <TableRow key={i} className="animate-pulse">
+                                        <TableCell className="px-5 py-3.5 text-center">
+                                            <div className="h-4 w-4 mx-auto rounded bg-gray-200 dark:bg-gray-700/60" />
+                                        </TableCell>
+                                        <TableCell className="px-5 py-3.5">
+                                            <div className="h-4 w-20 rounded bg-gray-200 dark:bg-gray-700/60" />
+                                        </TableCell>
+                                        <TableCell className="px-5 py-3.5">
+                                            <div className="h-4 w-40 rounded bg-gray-100 dark:bg-gray-800" />
+                                        </TableCell>
+                                        <TableCell className="px-5 py-3.5">
+                                            <div className="h-4 w-24 rounded bg-gray-100 dark:bg-gray-800" />
+                                        </TableCell>
+                                        <TableCell className="px-5 py-3.5 text-end">
+                                            <div className="h-4 w-16 ml-auto rounded bg-gray-100 dark:bg-gray-800" />
+                                        </TableCell>
+                                        <TableCell className="px-5 py-3.5">
+                                            <div className="h-6 w-16 rounded-full bg-gray-200 dark:bg-gray-700/60" />
+                                        </TableCell>
+                                        <TableCell className="px-5 py-3.5">
+                                            <div className="h-6 w-14 rounded bg-gray-100 dark:bg-gray-800" />
+                                        </TableCell>
+                                        <TableCell className="px-5 py-3.5">
+                                            <div className="h-7 w-7 rounded-lg bg-gray-100 dark:bg-gray-800" />
+                                        </TableCell>
+                                    </TableRow>
+                                ))
                             ) : error ? (
+
                                 <tr>
                                     <td colSpan={8} className="px-5 py-8 text-center text-sm text-red-400">
                                         Error: {error}

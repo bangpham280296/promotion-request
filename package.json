@@ -25,6 +25,7 @@
     "autoprefixer": "^10.4.22",
     "exceljs": "^4.4.0",
     "flatpickr": "^4.6.13",
+    "lucide-react": "^1.48.0",
     "mssql": "^12.5.5",
     "next": "^16.1.6",
     "nodemailer": "^8.0.10",

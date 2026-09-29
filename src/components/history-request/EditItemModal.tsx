@@ -13,6 +13,7 @@ import ComboDescriptionTable from "./ComboDescriptionTable";
 import DiscountMetadataModal from "@/components/voucherify/DiscountMetadataModal";
 import type { DiscountMetadata } from "@/types/discount-metadata";
 import { useServiceTypes } from "@/hooks/useServiceTypes";
+import { formatCurrency } from "@/lib/utils/formatCurrency";
 
 export type FormState = {
     itemcode: string;
@@ -204,6 +205,11 @@ export default function EditItemModal({
                                 onFormChange("price", e.target.value === "" ? "" : Number(e.target.value))
                             }
                         />
+                        {form.price !== "" && Number(form.price) > 0 && (
+                            <p className="mt-1 text-xs text-brand-500 font-medium">
+                                ≈ {formatCurrency(form.price, "VND")}
+                            </p>
+                        )}
                     </div>
 
                     <div className="sm:col-span-2">

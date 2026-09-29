@@ -18,6 +18,7 @@ import type {
   PushCampaignResponse,
 } from "@/types/voucherify";
 import type { DiscountMetadata } from "@/types/discount-metadata";
+import { formatCurrency } from "@/lib/utils/formatCurrency";
 
 interface PushItem {
   reqdtlid: number;
@@ -354,6 +355,11 @@ export default function VoucherifyPushModal({
                         <input type="number" min="0" value={maxDiscountCap} onChange={(e) => setMaxDiscountCap(e.target.value)}
                           placeholder="Optional"
                           className="w-full text-sm border border-gray-200 dark:border-white/[0.1] rounded-lg px-3 py-2 bg-transparent text-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500" />
+                        {maxDiscountCap && Number(maxDiscountCap) > 0 && (
+                          <p className="mt-1 text-xs text-brand-500 font-medium">
+                            ≈ {formatCurrency(maxDiscountCap, "VND")}
+                          </p>
+                        )}
                       </div>
                     </div>
                   ) : (
@@ -361,6 +367,11 @@ export default function VoucherifyPushModal({
                       <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">Amount (VND) *</label>
                       <input type="number" min="0" value={discountValueVnd} onChange={(e) => setDiscountValueVnd(e.target.value)}
                         className="w-full text-sm border border-gray-200 dark:border-white/[0.1] rounded-lg px-3 py-2 bg-transparent text-gray-700 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500" />
+                      {discountValueVnd && Number(discountValueVnd) > 0 && (
+                        <p className="mt-1 text-xs text-brand-500 font-medium">
+                          ≈ {formatCurrency(discountValueVnd, "VND")}
+                        </p>
+                      )}
                     </div>
                   )}
                   <div>

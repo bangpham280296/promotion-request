@@ -16,6 +16,7 @@ import { toDBDescription } from "./ComboDescriptionTable";
 import { toast } from "sonner";
 import { type Row, downloadTemplate, importFromExcel } from "./requestDetailExcel";
 import LoadRequestModal from "./LoadRequestModal";
+import { formatCurrency } from "@/lib/utils/formatCurrency";
 
 type DetailProps = {
     value: Row[];
@@ -359,7 +360,9 @@ export default function RequestDetailTable({ value, onChange }: DetailProps) {
                                         </TableCell>
                                         <TableCell className="px-5 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">{row.servicetype}</TableCell>
                                         <TableCell className="px-5 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">{row.discount}</TableCell>
-                                        <TableCell className="px-5 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">{row.price}</TableCell>
+                                        <TableCell className="px-5 py-3 text-gray-700 text-start text-theme-sm dark:text-gray-300 font-medium">
+                                            {formatCurrency(row.price)}
+                                        </TableCell>
                                         <TableCell className="px-5 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">{row.startdate}</TableCell>
                                         <TableCell className="px-5 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">{row.enddate}</TableCell>
                                         <TableCell className="px-5 py-3 text-gray-500 text-start text-theme-sm dark:text-gray-400">{row.notes}</TableCell>

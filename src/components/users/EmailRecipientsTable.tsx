@@ -267,15 +267,33 @@ export default function EmailRecipientsTable() {
             </TableHeader>
             <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
               {loading ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="py-12 text-center text-sm text-gray-400">
-                    <div className="flex items-center justify-center gap-2">
-                      <div className="w-4 h-4 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
-                      <span>Loading recipients...</span>
-                    </div>
-                  </TableCell>
-                </TableRow>
+                [...Array(5)].map((_, i) => (
+                  <TableRow key={i} className="animate-pulse">
+                    <TableCell className="px-5 py-4">
+                      <div className="flex items-center gap-2">
+                        <div className="w-4 h-4 rounded bg-gray-200 dark:bg-gray-700/60" />
+                        <div className="h-4 w-40 rounded bg-gray-200 dark:bg-gray-700/60" />
+                      </div>
+                    </TableCell>
+                    <TableCell className="px-5 py-4">
+                      <div className="h-4 w-28 rounded bg-gray-100 dark:bg-gray-800" />
+                    </TableCell>
+                    <TableCell className="px-5 py-4 text-center">
+                      <div className="inline-block h-5 w-16 rounded-full bg-gray-200 dark:bg-gray-700/60" />
+                    </TableCell>
+                    <TableCell className="px-5 py-4 text-center">
+                      <div className="inline-block h-6 w-20 rounded-full bg-gray-100 dark:bg-gray-800" />
+                    </TableCell>
+                    <TableCell className="px-5 py-4 text-right">
+                      <div className="inline-flex gap-1 justify-end">
+                        <div className="h-7 w-7 rounded-lg bg-gray-100 dark:bg-gray-800" />
+                        <div className="h-7 w-7 rounded-lg bg-gray-100 dark:bg-gray-800" />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
               ) : recipients.length === 0 ? (
+
                 <TableRow>
                   <TableCell colSpan={5} className="py-12 text-center text-sm text-gray-400">
                     <div className="flex flex-col items-center justify-center gap-2">
